@@ -504,7 +504,7 @@
     function pilihFileImport() { document.getElementById('inputFileExcel').click(); }
 
     function prosesImportExcel(input) {
-        const file = input.files[0];
+        const file = input.files;
         if (!file) return;
 
         const pembacaFile = new FileReader();
@@ -513,19 +513,41 @@
             let databaseLokal = ambilDatabase();
             let jumlahTerimport = 0;
 
-            // Variabel memori untuk menampung data dari baris yang di-merge (Sesuai Gambar)
             let tanggalTerakhir = "";
             let hariTerakhir = "";
+            
+            // Variabel pintar untuk mendeteksi tahun dan bulan dari header Excel Anda
+            let tahunDitemukan = 2026;
+            let bulanDitemukan = 5; // Default Juni (indeks JavaScript dimulai dari 0)
+
+            const daftarBulanIndo = ["JANUARI", "FEBRUARI", "MARET", "APRIL", "MEI", "JUNI", "JULI", "AGUSTUS", "SEPTEMBER", "OKTOBER", "NOVEMBER", "DESEMBER"];
 
             if (teksKonten.includes("<table") || teksKonten.includes("<tr")) {
                 const parser = new DOMParser();
                 const dokumenTabel = parser.parseFromString(teksKonten, "text/html");
                 const barisTabel = dokumenTabel.querySelectorAll("tr");
 
+                // 1. CARI HEADER BULAN & TAHUN DI BARIS ATAS
+                barisTabel.forEach((tr) => {
+                    const teksBarisUtuh = tr.innerText.toUpperCase();
+                    if (teksBarisUtuh.includes("BULAN :")) {
+                        daftarBulanIndo.forEach((namaBulan, indeksBulan) => {
+                            if (teksBarisUtuh.includes(namaBulan)) {
+                                bulanDitemukan = indeksBulan;
+                            }
+                        });
+                        // Ambil 4 angka tahun dari baris header (contoh: 2026)
+                        const pencocokanTahun = teksBarisUtuh.match(/\d{4}/);
+                        if (pencocokanTahun) {
+                            tahunDitemukan = parseInt(pencocokanTahun[0]);
+                        }
+                    }
+                });
+
+                // 2. PROSES MEMBACA BARIS DATA AGENDA
                 barisTabel.forEach((tr) => {
                     const kolom = tr.querySelectorAll("td, th");
-                    // Lewati header tabel utama atau baris yang tidak lengkap
-                    if (kolom.length < 5 || kolom[0].innerText.toUpperCase().includes("TGL")) return;
+                    if (kolom.length < 5 || tr.innerText.toUpperCase().includes("TGL") || tr.innerText.toUpperCase().includes("BULAN :")) return;
 
                     let tglRaw = kolom[0] ? kolom[0].innerText.trim() : "";
                     let hariRaw = kolom[1] ? kolom[1].innerText.trim() : "";
@@ -534,43 +556,33 @@
                     let pemateri = kolom[4] ? kolom[4].innerText.replace(/👤/g, "").trim() : "";
                     let lokasi = kolom[5] ? kolom[5].innerText.replace(/📍/g, "").trim() : "";
 
-                    // Lewati baris kosong atau baris pesan bawaan sistem
                     if (kegiatan === "" || kegiatan.includes("Tidak ada agenda")) return;
 
-                    // LOGIKA MERGED CELL: Jika kolom tanggal/hari kosong, gunakan data dari baris sebelumnya
-                    if (tglRaw !== "") {
-                        tanggalTerakhir = tglRaw;
-                    }
-                    if (hariRaw !== "") {
-                        hariTerakhir = hariRaw;
-                    }
+                    // LOGIKA MERGED CELL: Mengisi kolom kosong akibat sel yang digabung (Merged Cells)
+                    if (tglRaw !== "") tanggalTerakhir = tglRaw;
+                    if (hariRaw !== "") hariTerakhir = hariRaw;
 
-                    // Deteksi otomatis Jenis Agenda Rutin
-                    // Jika kolom tanggal berisi nama hari atau teks "Rutin", set sebagai agenda rutin
+                    // Tentukan apakah ini agenda rutin atau sekali jalan
                     const isRutin = tanggalTerakhir.toLowerCase().includes("rutin") || 
-                                    ["SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU", "MINGGU"].includes(tanggalTerakhir.toUpperCase()) ||
-                                    hariTerakhir !== "" && tanggalTerakhir.length <= 2; // Antisipasi jika hanya menuliskan angka tanggal saja
+                                    ["SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU", "MINGGU"].includes(tanggalTerakhir.toUpperCase());
 
-                    // Normalisasi format tanggal kalender HTML (YYYY-MM-DD)
                     let tanggalFinal = "";
                     if (!isRutin) {
                         if (tanggalTerakhir.includes("/")) {
                             const p = tanggalTerakhir.split("/");
                             tanggalFinal = p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : "";
                         } else if (tanggalTerakhir.includes("-")) {
-                            const p = tanggalTangal.split("-");
+                            const p = tanggalTerakhir.split("-");
                             tanggalFinal = p.length === 3 ? (p[0].length === 4 ? tanggalTerakhir : `${p[2]}-${p[1]}-${p[0]}`) : "";
-                        } else if (!isNaN(tanggalTerakhir) && tanggalTerakhir.length <= 2) {
-                            // Jika hanya tertulis angka tanggalnya saja (seperti angka 16 di gambar), otomatis pasang bulan & tahun berjalan (Juli 2026)
-                            const hariIni = new Date();
-                            const yyyy = hariIni.getFullYear();
-                            const mm = String(hariIni.getMonth() + 1).padStart(2, '0');
-                            const dd = String(tanggalTerakhir).padStart(2, '0');
+                        } else if (!isNaN(tanggalTerakhir) && tanggalTerakhir !== "") {
+                            // Konversi otomatis angka tanggal murni berdasarkan bulan & tahun header (Contoh: 16 -> 2026-06-16)
+                            const yyyy = tahunDitemukan;
+                            const mm = String(bulanDitemukan + 1).padStart(2, '0');
+                            const dd = String(parseInt(tanggalTerakhir)).padStart(2, '0');
                             tanggalFinal = `${yyyy}-${mm}-${dd}`;
                         }
                     }
 
-                    // Ubah format hari ke standar huruf kapital di awal kata (Capital Case)
                     let hariFinal = hariTerakhir.charAt(0).toUpperCase() + hariTerakhir.slice(1).toLowerCase();
 
                     const agendaBaru = {
@@ -582,7 +594,7 @@
                         kegiatan: kegiatan,
                         pemateri: pemateri === "-" ? "" : pemateri,
                         lokasi: lokasi === "-" ? "" : lokasi,
-                        selesai: tr.classList.contains("selesai") || tr.style.backgroundColor.includes("rgb") && !tr.style.backgroundColor.includes("255") // deteksi otomatis jika baris berwarna
+                        selesai: tr.classList.contains("selesai")
                     };
 
                     databaseLokal.push(agendaBaru);
@@ -593,18 +605,15 @@
             if (jumlahTerimport > 0) {
                 simpanDatabase(databaseLokal);
                 muatAgenda();
-                alert(`🔥 Berhasil mengimpor ${jumlahTerimport} kegiatan dari format Excel baru Anda!`);
+                alert(`🔥 Sukses mengunduh & mengimpor ${jumlahTerimport} kegiatan dari berkas Excel Anda!`);
             } else {
-                alert("Gagal membaca dokumen! Pastikan format tabel Excel Anda sesuai dengan template.");
+                alert("Gagal membaca dokumen! Pastikan Anda menyimpan Excel dalam format Web Page (.htm / .html).");
             }
             input.value = '';
         };
 
         pembacaFile.readAsText(file);
     }
-
-
-
 
     function toggleSelesai(id) {
         let agendas = ambilDatabase(); agendas = agendas.map(agenda => { if (agenda.id === id) agenda.selesai = !agenda.selesai; return agenda; });
