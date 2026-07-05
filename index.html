@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agenda Kerja S3 KA05</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
+        body { background-color: #f4f6f9; padding: 30px 20px; color: #333; }
+        .container { max-width: 1000px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
+        h2 { text-align: center; color: #2c3e50; margin-bottom: 25px; font-weight: 600; }
+        
+        /* Halaman Login Box */
+        .login-container { max-width: 400px; margin: 50px auto; background: #fff; border-radius: 12px; padding: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); text-align: center; }
+        .login-container h3 { color: #2c3e50; margin-bottom: 20px; }
+        input[type="text"], input[type="password"], input[type="time"], input[type="date"], select { padding: 12px; border: 1px solid #ced4da; border-radius: 6px; width: 100%; outline: none; margin-top: 5px; font-size: 1rem; background-color: #fff; }
+        input[type="text"]:focus, input[type="password"]:focus, input[type="time"]:focus, input[type="date"]:focus, select:focus { border-color: #4ea8de; }
+        
+        .btn-login { width: 100%; padding: 12px; background-color: #0288d1; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 1rem; margin-top: 15px; }
+        .btn-login:hover { background-color: #0077b6; }
+
+        /* Form & Management Section */
+        .form-container { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 25px; border: 1px solid #e9ecef; display: none; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 15px; }
+        .form-group { display: flex; flex-direction: column; gap: 5px; }
+        .form-group label { font-size: 0.85rem; font-weight: 600; color: #495057; }
+        
+        .btn-submit { width: 100%; padding: 12px; background-color: #2a9d8f; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 1rem; transition: background 0.2s; }
+        .btn-submit:hover { background-color: #21867a; }
+        
+        /* Filter Box */
+        .filter-box { background: #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end; }
+        .filter-box .form-group { flex: 1; min-width: 150px; }
+        .btn-reset { padding: 10px 15px; background-color: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.95rem; }
+        
+        /* Table Styling */
+        .table-responsive { overflow-x: auto; margin-top: 10px; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.95rem; }
+        th { background-color: #343a40; color: white; padding: 12px 10px; font-weight: 600; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.5px; }
+        td { padding: 12px 10px; border-bottom: 1px solid #dee2e6; vertical-align: middle; }
+        tr:hover { background-color: #fdfdfd; }
+        
+        tr.selesai td { text-decoration: line-through; color: #adb5bd; background-color: #f8f9fa; }
+        .badge-waktu { background-color: #e2eafc; color: #4a4e69; padding: 4px 8px; border-radius: 4px; font-weight: 600; font-size: 0.85rem; display: inline-block; }
+        .badge-rutin { background-color: #ffe3e3; color: #c91818; padding: 4px 8px; border-radius: 4px; font-weight: 600; font-size: 0.85rem; display: inline-block; }
+        
+        /* Action Buttons */
+        .aksi-btn { display: flex; gap: 5px; }
+        .btn-table { border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.85rem; color: white; }
+        .selesai-btn { background-color: #0288d1; }
+        .hapus-btn { background-color: #e63946; }
+        .btn-logout { background-color: #e63946; padding: 10px 15px; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.95rem; }
+        .no-data { text-align: center; padding: 20px; color: #6c757d; font-style: italic; }
+
+        /* Badge Role */
+        .badge-role { padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; color: white; margin-left: 10px; }
+        .role-admin { background-color: #e63946; }
+        .role-user { background-color: #0288d1; }
+    </style>
+</head>
+<body>
+
+<!-- HALAMAN LOGIN (KUNCI UTAMA SEBELUM BISA MELIHAT APAPUN) -->
+<div id="sectionLogin" class="login-container">
+    <h3>🔒 Login Sistem Agenda Kerja</h3>
+    <div style="margin-bottom: 15px; text-align: left;">
+        <label style="font-size: 0.85rem; font-weight: bold; color: #495057;">Username</label>
+        <input type="text" id="usernameInput" placeholder="Masukkan username...">
+    </div>
+    <div style="margin-bottom: 10px; text-align: left;">
+        <label style="font-size: 0.85rem; font-weight: bold; color: #495057;">Password</label>
+        <input type="password" id="passwordInput" placeholder="Masukkan password..." onkeypress="cekEnter(event)">
+    </div>
+    <button class="btn-login" onclick="prosesLogin()">Masuk Sistem</button>
+</div>
+
+<!-- KONTEN APLIKASI (HANYA MUNCUL JIKA SUDAH LOGIN VALID) -->
+<div id="kontenUtama" class="container" style="display: none;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+        <h2>📝 Agenda Kerja <span id="displayRole"></span></h2>
+        <button class="btn-logout" onclick="prosesLogout()">🔒 Keluar</button>
+    </div>
+    
+    <!-- MENU KELOLA USER (Hanya Muncul di Akun Admin) -->
+    <div id="managerUserContainer" class="form-container" style="background: #edf2f7; border-color: #cbd5e0;">
+        <h4 style="margin-bottom: 10px; color: #2d3748;">👥 Pengelolaan Akun Pengamat (Maks 15 User)</h4>
+        <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+            <div class="form-group">
+                <input type="text" id="newUsername" placeholder="Username baru...">
+            </div>
+            <div class="form-group">
+                <input type="text" id="newPassword" placeholder="Password baru...">
+            </div>
+            <button class="btn-submit" onclick="tambahUserBaru()" style="background-color: #4a5568;">+ Daftarkan User (<span id="userCount">0</span>/15)</button>
+        </div>
+        <div id="listUserTerdaftar" style="font-size: 0.85rem; margin-top: 10px; color: #4a5568; display: flex; flex-wrap: wrap; gap: 10px;"></div>
+    </div>
+    
+    <!-- FORM INPUT AGENDA (Hanya Muncul di Akun Admin) -->
+    <div id="formInputAgenda" class="form-container">
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="jenisAgenda">Jenis Agenda</label>
+                <select id="jenisAgenda" onchange="aturFormInput()">
+                    <option value="sekali">Sekali Jalan (Pakai Tanggal)</option>
+                    <option value="rutin">Rutin Mingguan (Pakai Hari)</option>
+                </select>
+            </div>
+            <div class="form-group" id="groupTanggal">
+                <label for="tanggalInput">Tanggal Berjalan</label>
+                <input type="date" id="tanggalInput">
+            </div>
+            <div class="form-group" id="groupHariRutin" style="display: none;">
+                <label for="hariRutinInput">Pilih Hari Rutin</label>
+                <select id="hariRutinInput">
+                    <option value="Senin">Setiap Senin</option>
+                    <option value="Selasa">Setiap Selasa</option>
+                    <option value="Rabu">Setiap Rabu</option>
+                    <option value="Kamis">Setiap Kamis</option>
+                    <option value="Jumat">Setiap Jumat</option>
+                    <option value="Sabtu">Setiap Sabtu</option>
+                    <option value="Minggu">Setiap Minggu</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="jamInput">Pukul (Waktu)</label>
+                <input type="time" id="jamInput">
+            </div>
+            <div class="form-group">
+                <label for="kegiatanInput">Kegiatan / Acara</label>
+                <input type="text" id="kegiatanInput" placeholder="Contoh: Briefing Pagi">
+            </div>
+            <div class="form-group">
+                <label for="pemateriInput">Pemateri / Peserta</label>
+                <input type="text" id="pemateriInput" placeholder="Contoh: All Staff">
+            </div>
+            <div class="form-group">
+                <label for="lokasiInput">Lokasi / Ruangan</label>
+                <input type="text" id="lokasiInput" placeholder="Contoh: Aula Utama">
+            </div>
+        </div>
+        <button class="btn-submit" onclick="tambahAgenda()">Simpan ke Agenda Kerja</button>
+    </div>
+
+    <!-- FILTER CARI RENTANG TANGGAL -->
+    <div class="filter-box">
+        <div class="form-group">
+            <label style="font-size: 0.85rem; font-weight: bold; color: #495057;">Dari Tanggal</label>
+            <input type="date" id="filterMulai" onchange="muatAgenda()">
+        </div>
+        <div class="form-group">
+            <label style="font-size: 0.85rem; font-weight: bold; color: #495057;">Sampai Tanggal</label>
+            <input type="date" id="filterSampai" onchange="muatAgenda()">
+        </div>
+        <div style="display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap;">
+            <button class="btn-reset" onclick="resetFilter()">Reset Filter</button>
+            <button onclick="exportKeExcel()" style="padding: 10px 15px; background-color: #217346; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.95rem;">📊 Export Excel</button>
+            <button id="btnImport" onclick="pilihFileImport()" style="padding: 10px 15px; background-color: #0288d1; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.95rem; display: none;">📥 Import Excel</button>
+            <input type="file" id="inputFileExcel" accept=".csv, .txt" style="display: none;" onchange="prosesImportExcel(this)">
+        </div>
+    </div>
+
+    <!-- Tampilan Data Agenda -->
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 15%;">Tanggal</th>
+                    <th style="width: 12%;">Hari</th>
+                    <th style="width: 10%;">Pukul</th>
+                    <th style="width: 28%;">Kegiatan</th>
+                    <th style="width: 15%;">Pemateri / Peserta</th>
+                    <th style="width: 10%;">Lokasi</th>
+                    <th id="thAksi" style="width: 10%; text-align: center; display: none;">Aksi</th>
+                </tr>
+            </thead>
+            <tbody id="daftarAgenda"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // == PENGATURAN UTAMA AKUN MASTER ADMIN ==
+    const ADMIN_USER = "admin";
+    const ADMIN_PASS = "Y!TR04213";
+
+    const sectionLogin = document.getElementById('sectionLogin');
+    const kontenUtama = document.getElementById('kontenUtama');
+    const usernameInput = document.getElementById('usernameInput');
+    const passwordInput = document.getElementById('passwordInput');
+    
+    const managerUserContainer = document.getElementById('managerUserContainer');
+    const formInputAgenda = document.getElementById('formInputAgenda');
+    const btnImport = document.getElementById('btnImport');
+    const thAksi = document.getElementById('thAksi');
+    const displayRole = document.getElementById('displayRole');
+    const userCount = document.getElementById('userCount');
+    const listUserTerdaftar = document.getElementById('listUserTerdaftar');
+
+    // Kolom input form agenda
+    const jenisAgenda = document.getElementById('jenisAgenda');
+    const groupTanggal = document.getElementById('groupTanggal');
+    const groupHariRutin = document.getElementById('groupHariRutin');
+    const tanggalInput = document.getElementById('tanggalInput');
+    const hariRutinInput = document.getElementById('hariRutinInput');
+    const jamInput = document.getElementById('jamInput');
+    const kegiatanInput = document.getElementById('kegiatanInput');
+    const pemateriInput = document.getElementById('pemateriInput');
+    const lokasiInput = document.getElementById('lokasiInput');
+    const filterMulai = document.getElementById('filterMulai');
+    const filterSampai = document.getElementById('filterSampai');
+    const daftarAgenda = document.getElementById('daftarAgenda');
+
+    document.addEventListener("DOMContentLoaded", periksaStatusLogin);
+
+    function ambilDaftarUser() {
+        const users = localStorage.getItem('db_users_list');
+        return users ? JSON.parse(users) : [];
+    }
+
+    function simpanDaftarUser(arrayUser) {
+        localStorage.setItem('db_users_list', JSON.stringify(arrayUser));
+    }
+
+    function periksaStatusLogin() {
+        const currentRole = localStorage.getItem("session_role");
+        
+        if (currentRole === "admin") {
+            sectionLogin.style.display = "none";
+            kontenUtama.style.display = "block";
+            managerUserContainer.style.display = "block";
+            formInputAgenda.style.display = "block";
+            btnImport.style.display = "block";
+            thAksi.style.display = "table-cell";
+            displayRole.innerHTML = `<span class="badge-role role-admin">Admin</span>`;
+            renderDaftarUser();
+        } else if (currentRole === "user") {
+            sectionLogin.style.display = "none";
+            kontenUtama.style.display = "block";
+            managerUserContainer.style.display = "none";
+            formInputAgenda.style.display = "none";
+            btnImport.style.display = "none";
+            thAksi.style.display = "none";
+            displayRole.innerHTML = `<span class="badge-role role-user">User / Pengamat</span>`;
+        } else {
+            // Jika belum login, sembunyikan seluruh konten tabel agenda demi privasi harian
+            sectionLogin.style.display = "block";
+            kontenUtama.style.display = "none";
+        }
+        muatAgenda();
+    }
+    function prosesLogin() {
+        const inputUser = usernameInput.value.trim();
+        const inputPass = passwordInput.value;
+        const listUser = ambilDaftarUser();
+
+        // 1. Cek kecocokan login Admin
+        if (inputUser === ADMIN_USER && inputPass === ADMIN_PASS) {
+            localStorage.setItem("session_role", "admin");
+            usernameInput.value = ""; passwordInput.value = "";
+            periksaStatusLogin();
+            return;
+        }
+
+        // 2. Cek kecocokan login dari daftar 15 User Pengamat
+        const userCocok = listUser.find(u => u.username === inputUser && u.password === inputPass);
+        if (userCocok) {
+            localStorage.setItem("session_role", "user");
+            usernameInput.value = ""; passwordInput.value = "";
+            periksaStatusLogin();
+        } else {
+            alert("Username atau Password salah / Akun tidak terdaftar!");
+        }
+    }
+
+    function prosesLogout() {
+        localStorage.removeItem("session_role");
+        periksaStatusLogin();
+    }
+
+    // Fungsi Admin mendaftarkan User baru (Dibatasi Maksimal 15 User)
+    function tambahUserBaru() {
+        const newU = document.getElementById('newUsername').value.trim();
+        const newP = document.getElementById('newPassword').value.trim();
+        
+        if(newU === "" || newP === "") { alert("Isi username & password user!"); return; }
+        
+        let listUser = ambilDaftarUser();
+        
+        if(listUser.length >= 15) {
+            alert("Gagal menambahkan! Batas kuota maksimal sudah mencapai limit (15 User Pengamat).");
+            return;
+        }
+
+        if(listUser.some(u => u.username === newU) || newU === ADMIN_USER) {
+            alert("Username ini sudah digunakan!"); return;
+        }
+
+        listUser.push({ username: newU, password: newP });
+        simpanDaftarUser(listUser);
+        
+        document.getElementById('newUsername').value = "";
+        document.getElementById('newPassword').value = "";
+        renderDaftarUser();
+    }
+
+    function hapusUser(usernameTarget) {
+        if(!confirm(`Hapus hak akses user [${usernameTarget}]?`)) return;
+        let listUser = ambilDaftarUser();
+        listUser = listUser.filter(u => u.username !== usernameTarget);
+        simpanDaftarUser(listUser);
+        renderDaftarUser();
+    }
+
+    function renderDaftarUser() {
+        const listUser = ambilDaftarUser();
+        userCount.innerText = listUser.length;
+        listUserTerdaftar.innerHTML = "";
+        listUser.forEach(u => {
+            listUserTerdaftar.innerHTML += `
+                <span style="background:#fff; padding:4px 8px; border-radius:4px; border:1px solid #cbd5e0;">
+                    👤 ${u.username} <b style="color:#e63946; cursor:pointer; margin-left:5px;" onclick="hapusUser('${u.username}')">X</b>
+                </span>`;
+        });
+    }
+
+    function cekEnter(e) { if (e.key === "Enter") prosesLogin(); }
+
+    function aturFormInput() {
+        if (jenisAgenda.value === 'rutin') {
+            groupTanggal.style.display = 'none'; groupHariRutin.style.display = 'block';
+        } else {
+            groupTanggal.style.display = 'block'; groupHariRutin.style.display = 'none';
+        }
+    }
+
+    function ambilDatabase() {
+        const data = localStorage.getItem('db_agenda_kerja_v2');
+        return data ? JSON.parse(data) : [];
+    }
+
+    function simpanDatabase(dataArray) {
+        localStorage.setItem('db_agenda_kerja_v2', JSON.stringify(dataArray));
+    }
+
+    function muatAgenda() {
+        let agendas = ambilDatabase();
+        const tglMulaiVal = filterMulai.value;
+        const tglSampaiVal = filterSampai.value;
+        const hariIndo = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+        
+        agendas = agendas.map(agenda => {
+            if (agenda.isRutin) {
+                const hariIni = new Date();
+                hariIni.setHours(0, 0, 0, 0);
+                let selisihHari = hariIndo.indexOf(agenda.hariRutin) - hariIni.getDay();
+                if (selisihHari < 0) selisihHari += 7;
+                const tanggalTarget = new Date(hariIni);
+                tanggalTarget.setDate(hariIni.getDate() + selisihHari);
+                agenda.tanggalUrutDinamis = `${tanggalTarget.getFullYear()}-${String(tanggalTarget.getMonth() + 1).padStart(2, '0')}-${String(tanggalTarget.getDate()).padStart(2, '0')}`;
+            } else {
+                agenda.tanggalUrutDinamis = agenda.tanggal;
+            }
+            return agenda;
+        });
+
+        if (tglMulaiVal !== "" || tglSampaiVal !== "") {
+            agendas = agendas.filter(agenda => {
+                const tglParts = agenda.tanggalUrutDinamis.split("-");
+                const tanggalAgenda = new Date(parseInt(tglParts), parseInt(tglParts) - 1, parseInt(tglParts));
+                if (tglMulaiVal !== "") {
+                    const m = tglMulaiVal.split("-");
+                    if (tanggalAgenda < new Date(parseInt(m), parseInt(m) - 1, parseInt(m))) return false;
+                }
+                if (tglSampaiVal !== "") {
+                    const s = tglSampaiVal.split("-");
+                    if (tanggalAgenda > new Date(parseInt(s), parseInt(s) - 1, parseInt(s))) return false;
+                }
+                return true;
+            });
+        }
+
+        agendas.sort((a, b) => new Date(a.tanggalUrutDinamis) - new Date(b.tanggalUrutDinamis) || (a.jam || "").localeCompare(b.jam || ""));
+        tampilkanAgenda(agendas);
+    }
+    function dapatkanNamaHari(tanggalTeks) {
+        if (!tanggalTeks) return "-";
+        const parts = tanggalTeks.split("-");
+        return ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"][new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getDay()];
+    }
+
+    function formatTanggalIndo(tanggalTeks) {
+        if (!tanggalTeks) return "-";
+        const tgl = tanggalTeks.split("-");
+        return `${tgl[2]}/${tgl[1]}/${tgl[0]}`;
+    }
+    function tampilkanAgenda(agendas) {
+        daftarAgenda.innerHTML = '';
+        if(agendas.length === 0) {
+            daftarAgenda.innerHTML = `<tr><td colspan="7" class="no-data">Tidak ada agenda ditemukan.</td></tr>`;
+            return;
+        }
+
+        const isAdmin = localStorage.getItem("session_role") === "admin";
+
+        agendas.forEach(function(agenda) {
+            const tr = document.createElement('tr');
+            if(agenda.selesai) tr.classList.add('selesai');
+
+            let kolomTanggal = agenda.isRutin ? `<span class="badge-rutin">🔄 Rutin</span>` : `<span class="badge-waktu">${formatTanggalIndo(agenda.tanggal)}</span>`;
+            let kolomHari = agenda.isRutin ? `<strong>${agenda.hariRutin}</strong>` : `<strong>${dapatkanNamaHari(agenda.tanggal)}</strong>`;
+
+            let aksiButtonHtml = '';
+            if (isAdmin) {
+                aksiButtonHtml = `
+                    <td style="display: table-cell;">
+                        <div class="aksi-btn">
+                            <button class="btn-table selesai-btn" onclick="toggleSelesai('${agenda.id}')">✔️</button>
+                            <button class="btn-table hapus-btn" onclick="hapusAgenda('${agenda.id}')">X</button>
+                        </div>
+                    </td>`;
+            }
+
+            tr.innerHTML = `
+                <td>${kolomTanggal}</td>
+                <td>${kolomHari}</td>
+                <td>⏰ ${agenda.jam || '-'}</td>
+                <td>${agenda.kegiatan}</td>
+                <td>👤 ${agenda.pemateri || '-'}</td>
+                <td>📍 ${agenda.lokasi || '-'}</td>
+                ${aksiButtonHtml}
+            `;
+            daftarAgenda.appendChild(tr);
+        });
+    }
+
+    function tambahAgenda() {
+        const kegiatan = kegiatanInput.value;
+        if (kegiatan.trim() === '' || (jenisAgenda.value === 'sekali' && tanggalInput.value === '')) { alert('Isi tanggal & kegiatan wajib!'); return; }
+
+        const agendaBaru = {
+            id: Date.now().toString(),
+            isRutin: (jenisAgenda.value === 'rutin'),
+            tanggal: jenisAgenda.value === 'sekali' ? tanggalInput.value : '',
+            hariRutin: jenisAgenda.value === 'rutin' ? hariRutinInput.value : '',
+            jam: jamInput.value, kegiatan: kegiatan, pemateri: pemateriInput.value, lokasi: lokasiInput.value, selesai: false
+        };
+
+        const agendas = ambilDatabase(); agendas.push(agendaBaru); simpanDatabase(agendas);
+        tanggalInput.value = ''; jamInput.value = ''; kegiatanInput.value = ''; pemateriInput.value = ''; lokasiInput.value = '';
+        muatAgenda();
+    }
+
+    function resetFilter() { filterMulai.value = ""; filterSampai.value = ""; muatAgenda(); }
+
+    function exportKeExcel() {
+        const tabelAgenda = document.querySelector("table"); if (!tabelAgenda) return;
+        const klonTabel = tabelAgenda.cloneNode(true);
+        if (localStorage.getItem("session_role") === "admin") {
+            klonTabel.querySelectorAll("tr").forEach(baris => { if(baris.lastElementChild) baris.lastElementChild.remove(); });
+        }
+        const templateExcel = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://w3.org"><head><meta charset="UTF-8"><style>th { background-color: #343a40; color: #fff; font-weight: bold; border: 1px solid #000; } td { border: 1px solid #dee2e6; }</style></head><body>${klonTabel.outerHTML}</body></html>`;
+        const dataBlob = new Blob([templateExcel], { type: "application/vnd.ms-excel" });
+        const urlUnduh = URL.createObjectURL(dataBlob);
+        const tautanUnduh = document.createElement("a"); tautanUnduh.href = urlUnduh; tautanUnduh.download = "Agenda_Kerja_Harian.xls";
+        document.body.appendChild(tautanUnduh); tautanUnduh.click(); document.body.removeChild(tautanUnduh); URL.revokeObjectURL(urlUnduh);
+    }
+
+    function pilihFileImport() { document.getElementById('inputFileExcel').click(); }
+
+    function prosesImportExcel(input) {
+        const file = input.files; if (!file) return;
+        const pembacaFile = new FileReader();
+        pembacaFile.onload = function (e) {
+            const barisData = e.target.result.split("\n"); let databaseLokal = ambilDatabase();
+            for (let i = 1; i < barisData.length; i++) {
+                const barisBersih = barisData[i].trim(); if (barisBersih === "") continue;
+                let kolom = barisBersih.split(/[,;]/).map(val => val.replace(/^["']|["']$/g, '').trim());
+                if (!kolom) continue;
+                databaseLokal.push({ id: (Date.now() + i).toString(), isRutin: (kolom.toLowerCase() === 'rutin'), tanggal: kolom.toLowerCase() === 'rutin' ? '' : kolom, hariRutin: kolom.toLowerCase() === 'rutin' ? kolom : '', jam: kolom, kegiatan: kolom, pemateri: kolom, lokasi: kolom, selesai: false });
+            }
+            simpanDatabase(databaseLokal); muatAgenda(); alert('Berhasil mengimpor agenda baru!'); input.value = '';
+        };
+        pembacaFile.readAsText(file);
+    }
+
+    function toggleSelesai(id) {
+        let agendas = ambilDatabase(); agendas = agendas.map(agenda => { if (agenda.id === id) agenda.selesai = !agenda.selesai; return agenda; });
+        simpanDatabase(agendas); muatAgenda();
+    }
+
+    function hapusAgenda(id) {
+        if(!confirm("Hapus agenda ini?")) return;
+        let agendas = ambilDatabase(); agendas = agendas.filter(agenda => agenda.id !== id);
+        simpanDatabase(agendas); muatAgenda();
+    }
+</script>
+</body>
+</html>
