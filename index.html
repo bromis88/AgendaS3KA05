@@ -503,7 +503,7 @@
 
     function pilihFileImport() { document.getElementById('inputFileExcel').click(); }
 
-                function prosesImportExcel(input) {
+    function prosesImportExcel(input) {
         const file = input.files[0];
         if (!file) return;
 
@@ -513,6 +513,10 @@
             let databaseLokal = ambilDatabase();
             let jumlahTerimport = 0;
 
+            // Variabel memori untuk menampung data dari baris yang di-merge (Sesuai Gambar)
+            let tanggalTerakhir = "";
+            let hariTerakhir = "";
+
             if (teksKonten.includes("<table") || teksKonten.includes("<tr")) {
                 const parser = new DOMParser();
                 const dokumenTabel = parser.parseFromString(teksKonten, "text/html");
@@ -520,40 +524,65 @@
 
                 barisTabel.forEach((tr) => {
                     const kolom = tr.querySelectorAll("td, th");
-                    if (kolom.length < 6) return;
+                    // Lewati header tabel utama atau baris yang tidak lengkap
+                    if (kolom.length < 5 || kolom[0].innerText.toUpperCase().includes("TGL")) return;
 
-                    let teksTanggal = kolom[0].innerText.trim();
-                    let teksHari = kolom[1].innerText.trim();
-                    let jam = kolom[2].innerText.replace(/⏰/g, "").replace("-", "").trim();
-                    let kegiatan = kolom[3].innerText.trim();
-                    let pemateri = kolom[4].innerText.replace(/👤/g, "").replace("-", "").trim();
-                    let lokasi = kolom[5].innerText.replace(/📍|📍|🎈/g, "").replace("-", "").trim();
+                    let tglRaw = kolom[0] ? kolom[0].innerText.trim() : "";
+                    let hariRaw = kolom[1] ? kolom[1].innerText.trim() : "";
+                    let jam = kolom[2] ? kolom[2].innerText.replace(/⏰/g, "").trim() : "";
+                    let kegiatan = kolom[3] ? kolom[3].innerText.trim() : "";
+                    let pemateri = kolom[4] ? kolom[4].innerText.replace(/👤/g, "").trim() : "";
+                    let lokasi = kolom[5] ? kolom[5].innerText.replace(/📍/g, "").trim() : "";
 
-                    // === FILTER VALIDASI TOTAL (ANTI BARIS SAMPAH) ===
-                    // Jika baris berisi teks judul kolom bawaan Excel lama, langsung blokir dan lewati!
-                    if (kegiatan.toLowerCase() === "kegiatan" || jam.toLowerCase() === "pukul" || pemateri.toLowerCase() === "pemateri / peserta" || lokasi.toLowerCase() === "lokasi") return;
-                    if (kegiatan === "" || teksTanggal.includes("Tidak ada agenda") || teksTanggal.toLowerCase() === "tanggal") return;
+                    // Lewati baris kosong atau baris pesan bawaan sistem
+                    if (kegiatan === "" || kegiatan.includes("Tidak ada agenda")) return;
 
-                    const isRutin = teksTanggal.includes("Rutin") || teksTanggal.includes("🔄");
-                    
-                    let tanggalAsli = "";
-                    if (!isRutin && teksTanggal.includes("/")) {
-                        const tglParts = teksTanggal.split("/");
-                        if (tglParts.length === 3) {
-                            tanggalAsli = `${tglParts[2]}-${tglParts[1]}-${tglParts[0]}`;
+                    // LOGIKA MERGED CELL: Jika kolom tanggal/hari kosong, gunakan data dari baris sebelumnya
+                    if (tglRaw !== "") {
+                        tanggalTerakhir = tglRaw;
+                    }
+                    if (hariRaw !== "") {
+                        hariTerakhir = hariRaw;
+                    }
+
+                    // Deteksi otomatis Jenis Agenda Rutin
+                    // Jika kolom tanggal berisi nama hari atau teks "Rutin", set sebagai agenda rutin
+                    const isRutin = tanggalTerakhir.toLowerCase().includes("rutin") || 
+                                    ["SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU", "MINGGU"].includes(tanggalTerakhir.toUpperCase()) ||
+                                    hariTerakhir !== "" && tanggalTerakhir.length <= 2; // Antisipasi jika hanya menuliskan angka tanggal saja
+
+                    // Normalisasi format tanggal kalender HTML (YYYY-MM-DD)
+                    let tanggalFinal = "";
+                    if (!isRutin) {
+                        if (tanggalTerakhir.includes("/")) {
+                            const p = tanggalTerakhir.split("/");
+                            tanggalFinal = p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : "";
+                        } else if (tanggalTerakhir.includes("-")) {
+                            const p = tanggalTangal.split("-");
+                            tanggalFinal = p.length === 3 ? (p[0].length === 4 ? tanggalTerakhir : `${p[2]}-${p[1]}-${p[0]}`) : "";
+                        } else if (!isNaN(tanggalTerakhir) && tanggalTerakhir.length <= 2) {
+                            // Jika hanya tertulis angka tanggalnya saja (seperti angka 16 di gambar), otomatis pasang bulan & tahun berjalan (Juli 2026)
+                            const hariIni = new Date();
+                            const yyyy = hariIni.getFullYear();
+                            const mm = String(hariIni.getMonth() + 1).padStart(2, '0');
+                            const dd = String(tanggalTerakhir).padStart(2, '0');
+                            tanggalFinal = `${yyyy}-${mm}-${dd}`;
                         }
                     }
+
+                    // Ubah format hari ke standar huruf kapital di awal kata (Capital Case)
+                    let hariFinal = hariTerakhir.charAt(0).toUpperCase() + hariTerakhir.slice(1).toLowerCase();
 
                     const agendaBaru = {
                         id: (Date.now() + Math.random()).toString(),
                         isRutin: isRutin,
-                        tanggal: tanggalAsli,
-                        hariRutin: isRutin ? teksHari : '',
+                        tanggal: isRutin ? "" : tanggalFinal,
+                        hariRutin: isRutin ? hariFinal : "",
                         jam: jam,
                         kegiatan: kegiatan,
-                        pemateri: pemateri,
-                        lokasi: lokasi,
-                        selesai: tr.classList.contains("selesai")
+                        pemateri: pemateri === "-" ? "" : pemateri,
+                        lokasi: lokasi === "-" ? "" : lokasi,
+                        selesai: tr.classList.contains("selesai") || tr.style.backgroundColor.includes("rgb") && !tr.style.backgroundColor.includes("255") // deteksi otomatis jika baris berwarna
                     };
 
                     databaseLokal.push(agendaBaru);
@@ -564,15 +593,16 @@
             if (jumlahTerimport > 0) {
                 simpanDatabase(databaseLokal);
                 muatAgenda();
-                alert(`🔥 Berhasil menyalin ${jumlahTerimport} data agenda kerja ke GitHub Pages!`);
+                alert(`🔥 Berhasil mengimpor ${jumlahTerimport} kegiatan dari format Excel baru Anda!`);
             } else {
-                alert("Gagal membaca data! Pastikan Anda memilih file Excel yang tepat.");
+                alert("Gagal membaca dokumen! Pastikan format tabel Excel Anda sesuai dengan template.");
             }
             input.value = '';
         };
 
         pembacaFile.readAsText(file);
     }
+
 
 
 
