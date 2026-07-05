@@ -468,7 +468,7 @@
 
     function pilihFileImport() { document.getElementById('inputFileExcel').click(); }
 
-            function prosesImportExcel(input) {
+                function prosesImportExcel(input) {
         const file = input.files[0];
         if (!file) return;
 
@@ -478,7 +478,6 @@
             let databaseLokal = ambilDatabase();
             let jumlahTerimport = 0;
 
-            // Membaca file Excel/HTML murni hasil Export (Sesuai gambar pengguna)
             if (teksKonten.includes("<table") || teksKonten.includes("<tr")) {
                 const parser = new DOMParser();
                 const dokumenTabel = parser.parseFromString(teksKonten, "text/html");
@@ -486,8 +485,7 @@
 
                 barisTabel.forEach((tr) => {
                     const kolom = tr.querySelectorAll("td, th");
-                    // Lewati header (Tanggal, Hari, Pukul) atau baris yang terlalu pendek
-                    if (kolom.length < 6 || kolom[0].innerText.includes("TANGGAL")) return;
+                    if (kolom.length < 6) return;
 
                     let teksTanggal = kolom[0].innerText.trim();
                     let teksHari = kolom[1].innerText.trim();
@@ -496,22 +494,23 @@
                     let pemateri = kolom[4].innerText.replace(/👤/g, "").replace("-", "").trim();
                     let lokasi = kolom[5].innerText.replace(/📍|📍|🎈/g, "").replace("-", "").trim();
 
-                    if (kegiatan === "" || teksTanggal.includes("Tidak ada agenda")) return;
+                    // === FILTER VALIDASI TOTAL (ANTI BARIS SAMPAH) ===
+                    // Jika baris berisi teks judul kolom bawaan Excel lama, langsung blokir dan lewati!
+                    if (kegiatan.toLowerCase() === "kegiatan" || jam.toLowerCase() === "pukul" || pemateri.toLowerCase() === "pemateri / peserta" || lokasi.toLowerCase() === "lokasi") return;
+                    if (kegiatan === "" || teksTanggal.includes("Tidak ada agenda") || teksTanggal.toLowerCase() === "tanggal") return;
 
-                    // Deteksi jenis berdasarkan teks yang ada di file Excel Anda
                     const isRutin = teksTanggal.includes("Rutin") || teksTanggal.includes("🔄");
                     
                     let tanggalAsli = "";
                     if (!isRutin && teksTanggal.includes("/")) {
                         const tglParts = teksTanggal.split("/");
                         if (tglParts.length === 3) {
-                            // Kembalikan format DD/MM/YYYY menjadi YYYY-MM-DD standar HTML
                             tanggalAsli = `${tglParts[2]}-${tglParts[1]}-${tglParts[0]}`;
                         }
                     }
 
                     const agendaBaru = {
-                        id: (Date.now() + Math.random()).toString(), // Generator ID unik anti-bentrok
+                        id: (Date.now() + Math.random()).toString(),
                         isRutin: isRutin,
                         tanggal: tanggalAsli,
                         hariRutin: isRutin ? teksHari : '',
