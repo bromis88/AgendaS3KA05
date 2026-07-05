@@ -343,7 +343,7 @@
         localStorage.setItem('db_agenda_kerja_v2', JSON.stringify(dataArray));
     }
 
-        function muatAgenda() {
+            function muatAgenda() {
         let agendas = ambilDatabase();
         const tglMulaiVal = filterMulai.value;
         const tglSampaiVal = filterSampai.value;
@@ -355,9 +355,8 @@
                 const hariIni = new Date();
                 hariIni.setHours(0, 0, 0, 0);
                 
-                // Hitung kapan hari rutin tersebut akan jatuh di kalender terdekat
                 let selisihHari = hariIndo.indexOf(agenda.hariRutin) - hariIni.getDay();
-                if (selisihHari < 0) selisihHari += 7; // Geser ke minggu depan jika harinya sudah lewat
+                if (selisihHari < 0) selisihHari += 7;
                 
                 const tanggalTarget = new Date(hariIni);
                 tanggalTarget.setDate(hariIni.getDate() + selisihHari);
@@ -368,20 +367,27 @@
                 
                 agenda.tanggalUrutDinamis = `${yyyy}-${mm}-${dd}`;
             } else {
-                agenda.tanggalUrutDinamis = agenda.tanggal;
+                // PENGAMAN: Jika agenda biasa menggunakan format garing (DD/MM/YYYY), ubah dulu ke format strip (YYYY-MM-DD)
+                if (agenda.tanggal && agenda.tanggal.includes("/")) {
+                    const p = agenda.tanggal.split("/");
+                    agenda.tanggalUrutDinamis = `${p[2]}-${p[1]}-${p[0]}`;
+                } else {
+                    agenda.tanggalUrutDinamis = agenda.tanggal;
+                }
             }
             return agenda;
         });
 
-        // 2. FILTER BERDASARKAN RENTANG TANGGAL (MEMENGARUHI SEKALI JALAN & RUTIN)
+        // 2. FILTER BERDASARKAN RENTANG TANGGAL (KEBAL SEMUA FORMAT)
         if (tglMulaiVal !== "" || tglSampaiVal !== "") {
             agendas = agendas.filter(agenda => {
-                // Pecah teks tanggal agenda menjadi format angka murni
+                if (!agenda.tanggalUrutDinamis) return false;
+
                 const tglParts = agenda.tanggalUrutDinamis.split("-");
                 const tanggalAgenda = new Date(parseInt(tglParts[0]), parseInt(tglParts[1]) - 1, parseInt(tglParts[2]));
                 tanggalAgenda.setHours(0, 0, 0, 0);
 
-                // Perbaikan Filter Batas Mulai
+                // Cek filter tanggal mulai
                 if (tglMulaiVal !== "") {
                     const m = tglMulaiVal.split("-");
                     const tglMulai = new Date(parseInt(m[0]), parseInt(m[1]) - 1, parseInt(m[2]));
@@ -389,7 +395,7 @@
                     if (tanggalAgenda < tglMulai) return false;
                 }
 
-                // Perbaikan Filter Batas Sampai
+                // Cek filter tanggal sampai
                 if (tglSampaiVal !== "") {
                     const s = tglSampaiVal.split("-");
                     const tglSampai = new Date(parseInt(s[0]), parseInt(s[1]) - 1, parseInt(s[2]));
@@ -401,12 +407,11 @@
             });
         }
 
-        // 3. PENGURUTAN KRONOLOGIS KALENDER (Tanggal Terdekat Selalu Di Atas)
+        // 3. PENGURUTAN KRONOLOGIS KALENDER
         agendas.sort((a, b) => {
             const urutanA = new Date(a.tanggalUrutDinamis);
             const urutanB = new Date(b.tanggalUrutDinamis);
             if (urutanA - urutanB !== 0) return urutanA - urutanB;
-            // Jika hari dan tanggalnya kembar, urutkan otomatis berdasarkan jam waktu
             return (a.jam || "").localeCompare(b.jam || "");
         });
 
