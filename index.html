@@ -513,91 +513,47 @@
             let databaseLokal = ambilDatabase();
             let jumlahTerimport = 0;
 
-            let tanggalTerakhir = "";
-            let hariTerakhir = "";
-            
-            // Pengaman pencarian teks header bulan & tahun
-            let tahunDitemukan = 2026;
-            let bulanDitemukan = 5; // Default indeks ke-5 adalah Juni (0 = Januari)
-
-            const daftarBulanIndo = ["JANUARI", "FEBRUARI", "MARET", "APRIL", "MEI", "JUNI", "JULI", "AGUSTUS", "SEPTEMBER", "OKTOBER", "NOVEMBER", "DESEMBER"];
-
             if (teksKonten.includes("<table") || teksKonten.includes("<tr")) {
                 const parser = new DOMParser();
                 const dokumenTabel = parser.parseFromString(teksKonten, "text/html");
                 const barisTabel = dokumenTabel.querySelectorAll("tr");
 
-                // 1. MEMBACA HEADER TERLEBIH DAHULU UNTUK MENENTUKAN BULAN & TAHUN ACUAN
-                barisTabel.forEach((tr) => {
-                    const teksBarisUtuh = tr.innerText.toUpperCase();
-                    if (teksBarisUtuh.includes("BULAN :")) {
-                        daftarBulanIndo.forEach((namaBulan, indeksBulan) => {
-                            if (teksBarisUtuh.includes(namaBulan)) {
-                                bulanDitemukan = indeksBulan;
-                            }
-                        });
-                        const pencocokanTahun = teksBarisUtuh.match(/\d{4}/);
-                        if (pencocokanTahun) {
-                            tahunDitemukan = parseInt(pencocokanTahun[0]);
-                        }
-                    }
-                });
-
-                // 2. MEMPROSES BARIS DATA KEGIATAN HARIANS
                 barisTabel.forEach((tr) => {
                     const kolom = tr.querySelectorAll("td, th");
-                    const teksTr = tr.innerText.toUpperCase();
+                    if (kolom.length < 6) return;
+
+                    let teksTanggal = kolom[0].innerText.trim();
+                    let teksHari = kolom[1].innerText.trim();
+                    let jam = kolom[2].innerText.replace(/⏰/g, "").replace("-", "").trim();
+                    let kegiatan = kolom[3].innerText.trim();
+                    let pemateri = kolom[4].innerText.replace(/👤/g, "").replace("-", "").trim();
+                    let lokasi = kolom[5].innerText.replace(/📍|📍|🎈/g, "").replace("-", "").trim();
+
+                    // === FILTER VALIDASI TOTAL (ANTI BARIS SAMPAH) ===
+                    // Jika baris berisi teks judul kolom bawaan Excel lama, langsung blokir dan lewati!
+                    if (kegiatan.toLowerCase() === "kegiatan" || jam.toLowerCase() === "pukul" || pemateri.toLowerCase() === "pemateri / peserta" || lokasi.toLowerCase() === "lokasi") return;
+                    if (kegiatan === "" || teksTanggal.includes("Tidak ada agenda") || teksTanggal.toLowerCase() === "tanggal") return;
+
+                    const isRutin = teksTanggal.includes("Rutin") || teksTanggal.includes("🔄");
                     
-                    // Lewati baris header kolom atau baris judul bulan
-                    if (kolom.length < 5 || teksTr.includes("TGL") || teksTr.includes("BULAN :") || teksTr.includes("KEGIATAN") && teksTr.includes("HARI")) return;
-
-                    let tglRaw = kolom[0] ? kolom[0].innerText.trim() : "";
-                    let hariRaw = kolom[1] ? kolom[1].innerText.trim() : "";
-                    let jam = kolom[2] ? kolom[2].innerText.replace(/⏰/g, "").trim() : "";
-                    let kegiatan = kolom[3] ? kolom[3].innerText.trim() : "";
-                    let pemateri = kolom[4] ? kolom[4].innerText.replace(/👤/g, "").trim() : "";
-                    let lokasi = kolom[5] ? kolom[5].innerText.replace(/📍/g, "").trim() : "";
-
-                    // Lewati baris kosong atau baris keterangan kosong bawaan excel
-                    if (kegiatan === "" || kegiatan.toLowerCase() === "kegiatan" || teksTanggal.includes("Tidak ada agenda")) return;
-
-                    // LOGIKA MERGED CELL: Mengisi otomatis kolom kosong jika sel di atasnya digabung
-                    if (tglRaw !== "") tanggalTerakhir = tglRaw;
-                    if (hariRaw !== "") hariTerakhir = hariRaw;
-
-                    // Deteksi apakah ini merupakan agenda rutin mingguan atau sekali jalan harian
-                    const isRutin = tanggalTerakhir.toLowerCase().includes("rutin") || 
-                                    ["SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU", "MINGGU"].includes(tanggalTerakhir.toUpperCase());
-
-                    let tanggalFinal = "";
-                    if (!isRutin) {
-                        if (tanggalTerakhir.includes("/")) {
-                            const p = tanggalTerakhir.split("/");
-                            tanggalFinal = p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : "";
-                        } else if (tanggalTerakhir.includes("-")) {
-                            const p = tanggalTerakhir.split("-");
-                            tanggalFinal = p.length === 3 ? (p[0].length === 4 ? tanggalTerakhir : `${p[2]}-${p[1]}-${p[0]}`) : "";
-                        } else if (!isNaN(tanggalTerakhir) && tanggalTerakhir !== "") {
-                            // Konversi otomatis angka tanggal murni (seperti 16, 17) berdasarkan bulan & tahun di header
-                            const yyyy = tahunDitemukan;
-                            const mm = String(bulanDitemukan + 1).padStart(2, '0');
-                            const dd = String(parseInt(tanggalTerakhir)).padStart(2, '0');
-                            tanggalFinal = `${yyyy}-${mm}-${dd}`;
+                    let tanggalAsli = "";
+                    if (!isRutin && teksTanggal.includes("/")) {
+                        const tglParts = teksTanggal.split("/");
+                        if (tglParts.length === 3) {
+                            tanggalAsli = `${tglParts[2]}-${tglParts[1]}-${tglParts[0]}`;
                         }
                     }
-
-                    let hariFinal = hariTerakhir.charAt(0).toUpperCase() + hariTerakhir.slice(1).toLowerCase();
 
                     const agendaBaru = {
                         id: (Date.now() + Math.random()).toString(),
                         isRutin: isRutin,
-                        tanggal: isRutin ? "" : tanggalFinal,
-                        hariRutin: isRutin ? hariFinal : "",
-                        jam: jam === "-" ? "" : jam,
+                        tanggal: tanggalAsli,
+                        hariRutin: isRutin ? teksHari : '',
+                        jam: jam,
                         kegiatan: kegiatan,
-                        pemateri: pemateri === "-" ? "" : pemateri,
-                        lokasi: lokasi === "-" ? "" : lokasi,
-                        selesai: false
+                        pemateri: pemateri,
+                        lokasi: lokasi,
+                        selesai: tr.classList.contains("selesai")
                     };
 
                     databaseLokal.push(agendaBaru);
@@ -608,9 +564,9 @@
             if (jumlahTerimport > 0) {
                 simpanDatabase(databaseLokal);
                 muatAgenda();
-                alert(`🔥 Sukses mengunduh & mengimpor ${jumlahTerimport} kegiatan dari berkas Excel Anda!`);
+                alert(`🔥 Berhasil menyalin ${jumlahTerimport} data agenda kerja ke GitHub Pages!`);
             } else {
-                alert("Gagal membaca dokumen! Pastikan Anda menyimpan Excel dalam format Web Page (.htm / .html).");
+                alert("Gagal membaca data! Pastikan Anda memilih file Excel yang tepat.");
             }
             input.value = '';
         };
