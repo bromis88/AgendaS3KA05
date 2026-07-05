@@ -468,7 +468,7 @@
 
     function pilihFileImport() { document.getElementById('inputFileExcel').click(); }
 
-        function prosesImportExcel(input) {
+            function prosesImportExcel(input) {
         const file = input.files[0];
         if (!file) return;
 
@@ -478,96 +478,68 @@
             let databaseLokal = ambilDatabase();
             let jumlahTerimport = 0;
 
-            // DETEKSI FORMAT 1: Jika file yang diimport adalah file hasil EXPORT aplikasi kita (Format Tabel HTML/XML)
+            // Membaca file Excel/HTML murni hasil Export (Sesuai gambar pengguna)
             if (teksKonten.includes("<table") || teksKonten.includes("<tr")) {
-                // Buat elemen tabel bayangan di memori untuk membaca baris data
                 const parser = new DOMParser();
                 const dokumenTabel = parser.parseFromString(teksKonten, "text/html");
-                const barisTabel = dokumenTabel.querySelectorAll("table tbody tr");
+                const barisTabel = dokumenTabel.querySelectorAll("tr");
 
-                barisTabel.forEach((tr, index) => {
-                    const kolom = tr.querySelectorAll("td");
-                    // Lewati jika baris kosong atau berisi pesan "Tidak ada agenda"
-                    if (kolom.length < 6 || tr.classList.contains("no-data")) return;
+                barisTabel.forEach((tr) => {
+                    const kolom = tr.querySelectorAll("td, th");
+                    // Lewati header (Tanggal, Hari, Pukul) atau baris yang terlalu pendek
+                    if (kolom.length < 6 || kolom[0].innerText.includes("TANGGAL")) return;
 
-                    const teksTanggal = kolom[0].innerText.trim();
-                    const teksHari = kolom[1].innerText.trim();
-                    const jam = kolom[2].innerText.replace("⏰", "").trim();
-                    const kegiatan = kolom[3].innerText.trim();
-                    const pemateri = kolom[4].innerText.replace("👤", "").trim();
-                    const lokasi = kolom[5].innerText.replace("📍", "").trim();
+                    let teksTanggal = kolom[0].innerText.trim();
+                    let teksHari = kolom[1].innerText.trim();
+                    let jam = kolom[2].innerText.replace(/⏰/g, "").replace("-", "").trim();
+                    let kegiatan = kolom[3].innerText.trim();
+                    let pemateri = kolom[4].innerText.replace(/👤/g, "").replace("-", "").trim();
+                    let lokasi = kolom[5].innerText.replace(/📍|📍|🎈/g, "").replace("-", "").trim();
 
-                    // Tentukan jenis agenda berdasarkan badge
-                    const isRutin = teksTanggal.includes("Rutin") || teksHari.includes("Setiap");
+                    if (kegiatan === "" || teksTanggal.includes("Tidak ada agenda")) return;
+
+                    // Deteksi jenis berdasarkan teks yang ada di file Excel Anda
+                    const isRutin = teksTanggal.includes("Rutin") || teksTanggal.includes("🔄");
                     
-                    // Kembalikan format tanggal DD/MM/YYYY menjadi YYYY-MM-DD standar HTML agar bisa diedit kembali
                     let tanggalAsli = "";
                     if (!isRutin && teksTanggal.includes("/")) {
                         const tglParts = teksTanggal.split("/");
                         if (tglParts.length === 3) {
+                            // Kembalikan format DD/MM/YYYY menjadi YYYY-MM-DD standar HTML
                             tanggalAsli = `${tglParts[2]}-${tglParts[1]}-${tglParts[0]}`;
                         }
                     }
 
                     const agendaBaru = {
-                        id: (Date.now() + index).toString(),
+                        id: (Date.now() + Math.random()).toString(), // Generator ID unik anti-bentrok
                         isRutin: isRutin,
                         tanggal: tanggalAsli,
                         hariRutin: isRutin ? teksHari : '',
-                        jam: jam === "-" ? "" : jam,
+                        jam: jam,
                         kegiatan: kegiatan,
-                        pemateri: pemateri === "-" ? "" : pemateri,
-                        lokasi: lokasi === "-" ? "" : lokasi,
+                        pemateri: pemateri,
+                        lokasi: lokasi,
                         selesai: tr.classList.contains("selesai")
                     };
 
                     databaseLokal.push(agendaBaru);
                     jumlahTerimport++;
                 });
-            } 
-            // DETEKSI FORMAT 2: Jika file yang diimport adalah file teks CSV standar manual (Pemisah Koma/Titik Koma)
-            else {
-                const barisData = teksKonten.split("\n");
-                for (let i = 1; i < barisData.length; i++) {
-                    const barisBersih = barisData[i].trim();
-                    if (barisBersih === "") continue;
-
-                    let kolom = barisBersih.split(/[,;]/);
-                    kolom = kolom.map(val => val.replace(/^["']|["']$/g, '').trim());
-
-                    const kegiatan = kolom[3] || '';
-                    if (kegiatan === "") continue;
-
-                    const jenis = kolom[0] ? kolom[0].toLowerCase() : 'sekali';
-                    const agendaBaru = {
-                        id: (Date.now() + i).toString(),
-                        isRutin: (jenis === 'rutin'),
-                        tanggal: (jenis === 'sekali') ? kolom[1] : '',
-                        hariRutin: (jenis === 'rutin') ? kolom[1] : '',
-                        jam: kolom[2] || '',
-                        kegiatan: kegiatan,
-                        pemateri: kolom[4] || '',
-                        lokasi: kolom[5] || '',
-                        selesai: false
-                    };
-                    databaseLokal.push(agendaBaru);
-                    jumlahTerimport++;
-                }
             }
 
-            // Simpan hasil ke LocalStorage dan perbarui layar
             if (jumlahTerimport > 0) {
                 simpanDatabase(databaseLokal);
                 muatAgenda();
-                alert(`Berhasil memindahkan ${jumlahTerimport} data agenda kerja ke sistem online Anda!`);
+                alert(`🔥 Berhasil menyalin ${jumlahTerimport} data agenda kerja ke GitHub Pages!`);
             } else {
-                alert("Gagal membaca file! Pastikan file yang Anda pilih adalah file backup hasil ekspor.");
+                alert("Gagal membaca data! Pastikan Anda memilih file Excel yang tepat.");
             }
             input.value = '';
         };
 
         pembacaFile.readAsText(file);
     }
+
 
 
     function toggleSelesai(id) {
