@@ -240,7 +240,50 @@
             alert("Akun tidak ditemukan atau password salah!");
         }
     }
-    function prosesLogout() { localStorage.removeItem("session_role"); periksaStatusLogin(); }
+        function prosesLogout() {
+        // 1. Bersihkan status sesi login saja
+        localStorage.removeItem("session_role");
+        
+        // 2. Kosongkan cache database di memori agar aman saat berganti akun
+        window.DATABASE_CLOUD_AGENDA = [];
+        window.DATABASE_CLOUD_USERS = [];
+        
+        // 3. Paksa website menarik data ulang murni dari Google Sheets sebelum memunculkan kotak login
+        tarikDataDariCloud();
+    }
+
+    function periksaStatusLogin() {
+        const currentRole = localStorage.getItem("session_role");
+        
+        if (currentRole === "admin") {
+            sectionLogin.style.display = "none"; 
+            kontenUtama.style.display = "block";
+            managerUserContainer.style.display = "block"; 
+            formInputAgenda.style.display = "block";
+            btnImport.style.display = "block"; 
+            thAksi.style.display = "table-cell";
+            displayRole.innerHTML = `<span class="badge-role role-admin">Admin</span>`;
+            renderDaftarUser();
+        } else if (currentRole === "user") {
+            sectionLogin.style.display = "none"; 
+            kontenUtama.style.display = "block";
+            managerUserContainer.style.display = "none"; 
+            formInputAgenda.style.display = "none";
+            btnImport.style.display = "none"; 
+            thAksi.style.display = "none";
+            displayRole.innerHTML = `<span class="badge-role role-user">User / Pengamat</span>`;
+        } else {
+            // JIKA LOGOUT: Tampilkan kotak login, bersihkan inputan lama, dan sembunyikan tabel agenda demi privasi
+            sectionLogin.style.display = "block"; 
+            kontenUtama.style.display = "none";
+            
+            // Pengaman pengosongan form login agar tidak macet di HP
+            if(document.getElementById('usernameInput')) document.getElementById('usernameInput').value = "";
+            if(document.getElementById('passwordInput')) document.getElementById('passwordInput').value = "";
+        }
+        muatAgenda();
+    }
+
     function cekEnter(e) { if (e.key === "Enter") prosesLogin(); }
 
     function renderDaftarUser() {
