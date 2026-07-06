@@ -329,23 +329,26 @@
     }
 
     function muatAgenda() {
-        let agendas = JSON.parse(JSON.stringify(window.DATABASE_CLOUD_AGENDA));
+        // Ambil data dari memori cloud, jika kosong buat array kosong agar tidak crash
+        let agendas = window.DATABASE_CLOUD_AGENDA ? JSON.parse(JSON.stringify(window.DATABASE_CLOUD_AGENDA)) : [];
         const tglMulaiVal = filterMulai.value;
         const tglSampaiVal = filterSampai.value;
         const hariIndo = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
         
-        // PERBAIKAN: Bersihkan data sampah/kosong yang datang dari Google Sheets
+        // 1. Bersihkan data sampah/kosong yang datang dari Google Sheets
         agendas = agendas.filter(agenda => {
-            return agenda.kegiatan && agenda.kegiatan.trim() !== "" && agenda.kegiatan !== "-";
+            return agenda && agenda.kegiatan && agenda.kegiatan.trim() !== "" && agenda.kegiatan !== "-";
         });
 
         agendas = agendas.map(agenda => {
-            // PERBAIKAN UTAMA: Potong format waktu rusak Google Sheets (1899-12-30T06:52:48.000Z -> 06:52)
-            if (agenda.jam && agenda.jam.includes("T")) {
-                let sisaWaktu = agenda.jam.split("T")[1]; // Mengambil bagian setelah huruf T
-                let komponenJam = sisaWaktu.split(":");
-                if (komponenJam.length >= 2) {
-                    agenda.jam = `${komponenJam[0]}:${komponenJam[1]}`; // Gabungkan Jam : Menit saja
+            // PERBAIKAN TOTAL FORMAT JAM: Potong format waktu rusak Google Sheets (1899-12-30T06:52:48.000Z -> 06:52)
+            if (agenda.jam && agenda.jam.toString().includes("T")) {
+                let sisaWaktu = agenda.jam.toString().split("T"); // [1899-12-30, 06:52:48.000Z]
+                if (sisaWaktu.length === 2) {
+                    let komponenJam = sisaWaktu[1].split(":"); // [06, 52, 48.000Z]
+                    if (komponenJam.length >= 2) {
+                        agenda.jam = `${komponenJam[0]}:${komponenJam[1]}`; // Gabungkan Jam : Menit saja
+                    }
                 }
             }
 
@@ -356,9 +359,9 @@
                 const tanggalTarget = new Date(hariIni); tanggalTarget.setDate(hariIni.getDate() + selisihHari);
                 agenda.tanggalUrutDinamis = `${tanggalTarget.getFullYear()}-${String(tanggalTarget.getMonth() + 1).padStart(2, '0')}-${String(tanggalTarget.getDate()).padStart(2, '0')}`;
             } else {
-                if (agenda.tanggal && agenda.tanggal.includes("/")) {
+                if (agenda.tanggal && agenda.tanggal.toString().includes("/")) {
                     const p = agenda.tanggal.split("/"); agenda.tanggalUrutDinamis = `${p[2]}-${p[1]}-${p[0]}`;
-                } else if (agenda.tanggal && agenda.tanggal.includes("T")) {
+                } else if (agenda.tanggal && agenda.tanggal.toString().includes("T")) {
                     agenda.tanggalUrutDinamis = agenda.tanggal.split("T")[0];
                 } else {
                     agenda.tanggalUrutDinamis = agenda.tanggal;
@@ -367,6 +370,7 @@
             return agenda;
         });
 
+        // 2. Filter Berdasarkan Rentang Tanggal Kalender
         if (tglMulaiVal !== "" || tglSampaiVal !== "") {
             agendas = agendas.filter(agenda => {
                 if (!agenda.tanggalUrutDinamis) return false;
@@ -386,9 +390,17 @@
             });
         }
 
-        agendas.sort((a, b) => new Date(a.tanggalUrutDinamis) - new Date(b.tanggalUrutDinamis) || (a.jam || "").localeCompare(b.jam || ""));
+        // 3. Pengurutan Data Kronologis Kalender
+        agendas.sort((a, b) => {
+            const urutanA = new Date(a.tanggalUrutDinamis);
+            const urutanB = new Date(b.tanggalUrutDinamis);
+            if (urutanA - urutanB !== 0) return urutanA - urutanB;
+            return (a.jam || "").toString().localeCompare((b.jam || "").toString());
+        });
+
         tampilkanAgenda(agendas);
     }
+
 
     function tampilkanAgenda(agendas) {
         daftarAgenda.innerHTML = '';
