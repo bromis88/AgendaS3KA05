@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agenda Kerja S3 KA05</title>
+    <title>Web Agenda Kerja Cloud</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
         body { background-color: #f4f6f9; padding: 30px 20px; color: #333; }
@@ -122,13 +122,12 @@
 </div>
 
 <script>
-    // ⚠️ MASUKKAN URL GOOGLE APPS SCRIPT ANDA DI SINI
+    // MASUKKAN URL GOOGLE APPS SCRIPT ANDA DI SINI
     const API_URL = "https://script.google.com/macros/s/AKfycbwe3GO8LuSTE9HF3sMNDqrRYGqGU3_3sMWfhEbdMAOhbz63QTYG3hODNG-pwN5qfonE/exec";
     
     const ADMIN_USER = "admin";
     const ADMIN_PASS = "Y!TR04213";
 
-    // Global memory cache agar filter lokal tetap responsif super cepat
     window.DATABASE_CLOUD_AGENDA = [];
     window.DATABASE_CLOUD_USERS = [];
 
@@ -164,8 +163,8 @@
 
     function setLoadingMode(status) {
         loadingStatus.style.display = status ? "block" : "none";
-        btnSimpanAgenda.disabled = status;
-        btnTambahUser.disabled = status;
+        if(btnSimpanAgenda) btnSimpanAgenda.disabled = status;
+        if(btnTambahUser) btnTambahUser.disabled = status;
     }
 
     // Mengambil data terpadu (GET via JSONP untuk bypass CORS lokal/HP)
@@ -175,8 +174,8 @@
         if (scriptLama) scriptLama.remove();
 
         window.handleCloudPayload = function(payload) {
-            window.DATABASE_CLOUD_AGENDA = payload.agendas;
-            window.DATABASE_CLOUD_USERS = payload.users;
+            window.DATABASE_CLOUD_AGENDA = payload.agendas || [];
+            window.DATABASE_CLOUD_USERS = payload.users || [];
             setLoadingMode(false);
             periksaStatusLogin();
         };
@@ -190,6 +189,7 @@
         };
         document.body.appendChild(script);
     }
+
     // Mengirim data perubahan (POST) ke Google Sheets secara background
     async function kirimDataKeCloud(payload) {
         setLoadingMode(true);
@@ -217,83 +217,36 @@
             displayRole.innerHTML = `<span class="badge-role role-user">User / Pengamat</span>`;
         } else {
             sectionLogin.style.display = "block"; kontenUtama.style.display = "none";
-        }
-        muatAgenda();
-    }
-
-        function prosesLogin() {
-        const inputUser = usernameInput.value.trim();
-        const inputPass = passwordInput.value;
-
-        // 1. KUNCI UTAMA: Validasi Akun Master Admin (Selalu prioritaskan ini tanpa memandang koneksi sheets)
-        if (inputUser === ADMIN_USER && inputPass === ADMIN_PASS) {
-            localStorage.setItem("session_role", "admin");
-            usernameInput.value = ""; 
-            passwordInput.value = "";
-            periksaStatusLogin(); 
-            return; // Hentikan fungsi di sini karena login admin sudah sukses
-        }
-
-        // 2. Validasi Akun Pengamat dari Google Sheets (Hanya jika bukan kata 'admin')
-        if (window.DATABASE_CLOUD_USERS && window.DATABASE_CLOUD_USERS.length > 0) {
-            const userCocok = window.DATABASE_CLOUD_USERS.find(u => u.username.trim() === inputUser && u.password.toString() === inputPass.toString());
-            if (userCocok) {
-                localStorage.setItem("session_role", "user");
-                usernameInput.value = ""; 
-                passwordInput.value = "";
-                periksaStatusLogin();
-                return;
-            }
-        }
-
-        // Jika semua pengecekan di atas gagal, tampilkan peringatan salah
-        alert("Username atau Password salah / Akun tidak terdaftar!");
-    }
-
-        function prosesLogout() {
-        // 1. Bersihkan status sesi login saja
-        localStorage.removeItem("session_role");
-        
-        // 2. Kosongkan cache database di memori agar aman saat berganti akun
-        window.DATABASE_CLOUD_AGENDA = [];
-        window.DATABASE_CLOUD_USERS = [];
-        
-        // 3. Paksa website menarik data ulang murni dari Google Sheets sebelum memunculkan kotak login
-        tarikDataDariCloud();
-    }
-
-    function periksaStatusLogin() {
-        const currentRole = localStorage.getItem("session_role");
-        
-        if (currentRole === "admin") {
-            sectionLogin.style.display = "none"; 
-            kontenUtama.style.display = "block";
-            managerUserContainer.style.display = "block"; 
-            formInputAgenda.style.display = "block";
-            btnImport.style.display = "block"; 
-            thAksi.style.display = "table-cell";
-            displayRole.innerHTML = `<span class="badge-role role-admin">Admin</span>`;
-            renderDaftarUser();
-        } else if (currentRole === "user") {
-            sectionLogin.style.display = "none"; 
-            kontenUtama.style.display = "block";
-            managerUserContainer.style.display = "none"; 
-            formInputAgenda.style.display = "none";
-            btnImport.style.display = "none"; 
-            thAksi.style.display = "none";
-            displayRole.innerHTML = `<span class="badge-role role-user">User / Pengamat</span>`;
-        } else {
-            // JIKA LOGOUT: Tampilkan kotak login, bersihkan inputan lama, dan sembunyikan tabel agenda demi privasi
-            sectionLogin.style.display = "block"; 
-            kontenUtama.style.display = "none";
-            
-            // Pengaman pengosongan form login agar tidak macet di HP
             if(document.getElementById('usernameInput')) document.getElementById('usernameInput').value = "";
             if(document.getElementById('passwordInput')) document.getElementById('passwordInput').value = "";
         }
         muatAgenda();
     }
 
+    function prosesLogin() {
+        const inputUser = usernameInput.value.trim();
+        const inputPass = passwordInput.value;
+
+        // 1. Kunci Utama Akun Master Admin
+        if (inputUser === ADMIN_USER && inputPass === ADMIN_PASS) {
+            localStorage.setItem("session_role", "admin");
+            usernameInput.value = ""; passwordInput.value = "";
+            periksaStatusLogin(); return;
+        }
+
+        // 2. Cek Akun Pengamat dari Google Sheets
+        if (window.DATABASE_CLOUD_USERS && window.DATABASE_CLOUD_USERS.length > 0) {
+            const userCocok = window.DATABASE_CLOUD_USERS.find(u => u.username.trim() === inputUser && u.password.toString() === inputPass.toString());
+            if (userCocok) {
+                localStorage.setItem("session_role", "user");
+                usernameInput.value = ""; passwordInput.value = "";
+                periksaStatusLogin(); return;
+            }
+        }
+        alert("Username atau Password salah / Akun tidak terdaftar!");
+    }
+
+    function prosesLogout() { localStorage.removeItem("session_role"); window.DATABASE_CLOUD_AGENDA = []; window.DATABASE_CLOUD_USERS = []; tarikDataDariCloud(); }
     function cekEnter(e) { if (e.key === "Enter") prosesLogin(); }
 
     function renderDaftarUser() {
@@ -329,25 +282,21 @@
     }
 
     function muatAgenda() {
-        // Ambil data dari memori cloud, jika kosong buat array kosong agar tidak crash
         let agendas = window.DATABASE_CLOUD_AGENDA ? JSON.parse(JSON.stringify(window.DATABASE_CLOUD_AGENDA)) : [];
         const tglMulaiVal = filterMulai.value;
         const tglSampaiVal = filterSampai.value;
         const hariIndo = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
         
-        // 1. Bersihkan data sampah/kosong yang datang dari Google Sheets
-        agendas = agendas.filter(agenda => {
-            return agenda && agenda.kegiatan && agenda.kegiatan.trim() !== "" && agenda.kegiatan !== "-";
-        });
+        agendas = agendas.filter(agenda => agenda && agenda.kegiatan && agenda.kegiatan.trim() !== "" && agenda.kegiatan !== "-");
 
         agendas = agendas.map(agenda => {
-            // PERBAIKAN FATAL FORMAT JAM: Koreksi pemecahan array indeks string yang benar
+            // FIX: Mengambil teks indeks ke-1 dari pemisahan datetime T secara aman
             if (agenda.jam && agenda.jam.toString().includes("T")) {
-                let sisaWaktu = agenda.jam.toString().split("T"); // [1899-12-30, 06:52:48.000Z]
+                let sisaWaktu = agenda.jam.toString().split("T");
                 if (sisaWaktu.length === 2) {
-                    let komponenJam = sisaWaktu[1].split(":"); // Memecah string waktu murni [06, 52, 48.000Z]
+                    let komponenJam = sisaWaktu[1].split(":"); 
                     if (komponenJam.length >= 2) {
-                        agenda.jam = `${komponenJam[0]}:${komponenJam[1]}`; // Hasil: 06:52
+                        agenda.jam = `${komponenJam[0]}:${komponenJam[1]}`;
                     }
                 }
             }
@@ -370,14 +319,12 @@
             return agenda;
         });
 
-        // 2. Filter Berdasarkan Rentang Tanggal Kalender
         if (tglMulaiVal !== "" || tglSampaiVal !== "") {
             agendas = agendas.filter(agenda => {
                 if (!agenda.tanggalUrutDinamis) return false;
                 const tglParts = agenda.tanggalUrutDinamis.split("-");
                 if (tglParts.length !== 3) return false;
                 const tanggalAgenda = new Date(parseInt(tglParts[0]), parseInt(tglParts[1]) - 1, parseInt(tglParts[2]));
-                
                 if (tglMulaiVal !== "") {
                     const m = tglMulaiVal.split("-");
                     if (tanggalAgenda < new Date(parseInt(m[0]), parseInt(m[1]) - 1, parseInt(m[2]))) return false;
@@ -390,64 +337,25 @@
             });
         }
 
-        // 3. Pengurutan Data Kronologis Kalender
-        agendas.sort((a, b) => {
-            const urutanA = new Date(a.tanggalUrutDinamis);
-            const urutanB = new Date(b.tanggalUrutDinamis);
-            if (urutanA - urutanB !== 0) return urutanA - urutanB;
-            return (a.jam || "").toString().localeCompare((b.jam || "").toString());
-        });
-
+        agendas.sort((a, b) => new Date(a.tanggalUrutDinamis) - new Date(b.tanggalUrutDinamis) || (a.jam || "").toString().localeCompare((b.jam || "").toString()));
         tampilkanAgenda(agendas);
     }
 
-
-    function tampilkanAgenda(agendas) {
-        daftarAgenda.innerHTML = '';
-        if(agendas.length === 0) {
-            daftarAgenda.innerHTML = `<tr><td colspan="7" class="no-data">Tidak ada agenda ditemukan.</td></tr>`; return;
-        }
-        const isAdmin = localStorage.getItem("session_role") === "admin";
-
-        agendas.forEach(function(agenda) {
-            const tr = document.createElement('tr');
-            if(agenda.selesai) tr.classList.add('selesai');
-
-            // Ambil data tanggal bersih (potong jika ada sisa timestamp ISO dari Google Sheets)
-            let tanggalMentah = agenda.tanggal;
-            if(tanggalMentah && tanggalMentah.includes("T")) {
-                tanggalMentah = tanggalMentah.split("T")[0];
-            }
-
-            let kolomTanggal = agenda.isRutin ? `<span class="badge-rutin">🔄 Rutin</span>` : `<span class="badge-waktu">${formatTanggalIndo(tanggalMentah)}</span>`;
-            let kolomHari = agenda.isRutin ? `<strong>${agenda.hariRutin}</strong>` : `<strong>${dapatkanNamaHari(tanggalMentah)}</strong>`;
-
-            let aksiButtonHtml = isAdmin ? `
-                <td class="aksi-kolom"><div class="aksi-btn">
-                    <button class="btn-table selesai-btn" onclick="toggleSelesai('${agenda.id}')">✔️</button>
-                    <button class="btn-table hapus-btn" onclick="hapusAgenda('${agenda.id}')">X</button>
-                </div></td>` : '';
-
-            tr.innerHTML = `<td>${kolomTanggal}</td><td>${kolomHari}</td><td>⏰ ${agenda.jam || '-'}</td><td>${agenda.kegiatan}</td><td>👤 ${agenda.pemateri || '-'}</td><td>📍 ${agenda.lokasi || '-'}</td>${aksiButtonHtml}`;
-            daftarAgenda.appendChild(tr);
-        });
-    }
-
-        agendas.sort((a, b) => new Date(a.tanggalUrutDinamis) - new Date(b.tanggalUrutDinamis) || (a.jam || "").localeCompare(b.jam || ""));
-        tampilkanAgenda(agendas);
-    }
     function dapatkanNamaHari(tanggalTeks) {
         if (!tanggalTeks) return "-";
-        const parts = tanggalTeks.includes("T") ? tanggalTeks.split("T")[0].split("-") : tanggalTeks.split("-");
+        const parts = tanggalTeks.toString().includes("T") ? tanggalTeks.toString().split("T")[0].split("-") : tanggalTeks.toString().split("-");
+        if (parts.length !== 3) return "-";
         return ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"][new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getDay()];
     }
 
     function formatTanggalIndo(tanggalTeks) {
         if (!tanggalTeks) return "-";
-        const bersih = tanggalTeks.includes("T") ? tanggalTeks.split("T")[0] : tanggalTeks;
+        const bersih = tanggalTeks.toString().includes("T") ? tanggalTeks.toString().split("T")[0] : tanggalTeks;
         const tgl = bersih.split("-");
+        if (tgl.length !== 3) return tanggalTeks;
         return `${tgl[2]}/${tgl[1]}/${tgl[0]}`;
     }
+
     function tampilkanAgenda(agendas) {
         daftarAgenda.innerHTML = '';
         if(agendas.length === 0) {
@@ -459,8 +367,13 @@
             const tr = document.createElement('tr');
             if(agenda.selesai) tr.classList.add('selesai');
 
-            let kolomTanggal = agenda.isRutin ? `<span class="badge-rutin">🔄 Rutin</span>` : `<span class="badge-waktu">${formatTanggalIndo(agenda.tanggal)}</span>`;
-            let kolomHari = agenda.isRutin ? `<strong>${agenda.hariRutin}</strong>` : `<strong>${dapatkanNamaHari(agenda.tanggal)}</strong>`;
+            let tanggalMentah = agenda.tanggal;
+            if(tanggalMentah && tanggalMentah.toString().includes("T")) {
+                tanggalMentah = tanggalMentah.toString().split("T")[0];
+            }
+
+            let kolomTanggal = agenda.isRutin ? `<span class="badge-rutin">🔄 Rutin</span>` : `<span class="badge-waktu">${formatTanggalIndo(tanggalMentah)}</span>`;
+            let kolomHari = agenda.isRutin ? `<strong>${agenda.hariRutin}</strong>` : `<strong>${dapatkanNamaHari(tanggalMentah)}</strong>`;
 
             let aksiButtonHtml = isAdmin ? `
                 <td class="aksi-kolom"><div class="aksi-btn">
@@ -508,22 +421,18 @@
 
     function pilihFileImport() { document.getElementById('inputFileExcel').click(); }
 
-            function prosesImportExcel(input) {
-        const file = input.files[0];
-        if (!file) return;
-
+    function prosesImportExcel(input) {
+        const file = input.files; if (!file) return;
         const pembacaFile = new FileReader();
         pembacaFile.onload = function (e) {
             const teksKonten = e.target.result;
             let bulkArray = [];
-            let tahunDitemukan = 2026, bulanDitemukan = 5; // Default Juni 2026
+            let tahunDitemukan = 2026, bulanDitemukan = 5;
             const daftarBulanIndo = ["JANUARI", "FEBRUARI", "MARET", "APRIL", "MEI", "JUNI", "JULI", "AGUSTUS", "SEPTEMBER", "OKTOBER", "NOVEMBER", "DESEMBER"];
             let tanggalTerakhir = "", hariTerakhir = "";
 
-            // ====== STRUKTUR PEMBACA 1: Jika File berformat Web Page (.html / .htm) ======
             if (teksKonten.includes("<table") || teksKonten.includes("<tr")) {
-                const parser = new DOMParser(); 
-                const dokumenTabel = parser.parseFromString(teksKonten, "text/html");
+                const parser = new DOMParser(); const dokumenTabel = parser.parseFromString(teksKonten, "text/html");
                 const barisTabel = dokumenTabel.querySelectorAll("tr");
                 
                 barisTabel.forEach(tr => {
@@ -537,7 +446,7 @@
                 barisTabel.forEach((tr, index) => {
                     const kolom = tr.querySelectorAll("td, th");
                     const teksTr = tr.innerText.toUpperCase();
-                    if (kolom.length < 5 || teksTr.includes("TGL") || teksTr.includes("BULAN :") || teksTr.includes("KEGIATAN") && teksTr.includes("HARI")) return;
+                    if (kolom.length < 6 || teksTr.includes("TGL") || teksTr.includes("BULAN :") || teksTr.includes("KEGIATAN") && teksTr.includes("HARI")) return;
 
                     let tglRaw = kolom[0] ? kolom[0].innerText.trim() : "";
                     let hariRaw = kolom[1] ? kolom[1].innerText.trim() : "";
@@ -571,19 +480,186 @@
                         hariFinal = hariBersih.charAt(0).toUpperCase() + hariBersih.slice(1).toLowerCase();
                     }
 
-                    bulkArray.push({ id: (Date.now() + index + Math.random()).toString(), isRutin: isRutin, tanggal: isRutin ? "" : tanggalFinal, hariRutin: isRutin ? hariFinal : "", jam: jam === "-" ? "" : jam, kegiatan: kegiatan, pemateri: pemateri === "-" ? "" : pemateri, lokasi: lokasi === "-" ? "" : lokasi, selesai: tr.classList.contains("selesai") });
-                });
-            } 
-            // ====== STRUKTUR PEMBACA 2: Jika File berformat Teks Ringan CSV (*.csv) ======
-            else {
-                const barisData = teksKonten.split("\n");
+                    bulkArray.push({
+                        id: (Date.now() + index + Math.random()).toString(),
+                if (!agenda.tanggalUrutDinamis) return false;
+                const tglParts = agenda.tanggalUrutDinamis.split("-");
+                if (tglParts.length !== 3) return false;
+                const tanggalAgenda = new Date(parseInt(tglParts[0]), parseInt(tglParts[1]) - 1, parseInt(tglParts[2]));
+                if (tglMulaiVal !== "") {
+                    const m = tglMulaiVal.split("-");
+                    if (tanggalAgenda < new Date(parseInt(m[0]), parseInt(m[1]) - 1, parseInt(m[2]))) return false;
+                }
+                if (tglSampaiVal !== "") {
+                    const s = tglSampaiVal.split("-");
+                    if (tanggalAgenda > new Date(parseInt(s[0]), parseInt(s[1]) - 1, parseInt(s[2]))) return false;
+                }
+                return true;
+            });
+        }
+
+        agendas.sort((a, b) => new Date(a.tanggalUrutDinamis) - new Date(b.tanggalUrutDinamis) || (a.jam || "").toString().localeCompare((b.jam || "").toString()));
+        tampilkanAgenda(agendas);
+    }
+
+    function dapatkanNamaHari(tanggalTeks) {
+        if (!tanggalTeks) return "-";
+        const parts = tanggalTeks.toString().includes("T") ? tanggalTeks.toString().split("T")[0].split("-") : tanggalTeks.toString().split("-");
+        if (parts.length !== 3) return "-";
+        return ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"][new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getDay()];
+    }
+
+    function formatTanggalIndo(tanggalTeks) {
+        if (!tanggalTeks) return "-";
+        const bersih = tanggalTeks.toString().includes("T") ? tanggalTeks.toString().split("T")[0] : tanggalTeks;
+        const tgl = bersih.split("-");
+        if (tgl.length !== 3) return tanggalTeks;
+        return `${tgl[2]}/${tgl[1]}/${tgl[0]}`;
+    }
+
+    function tampilkanAgenda(agendas) {
+        daftarAgenda.innerHTML = '';
+        if(agendas.length === 0) {
+            daftarAgenda.innerHTML = `<tr><td colspan="7" class="no-data">Tidak ada agenda ditemukan.</td></tr>`; return;
+        }
+        const isAdmin = localStorage.getItem("session_role") === "admin";
+
+        agendas.forEach(function(agenda) {
+            const tr = document.createElement('tr');
+            if(agenda.selesai) tr.classList.add('selesai');
+
+            let tanggalMentah = agenda.tanggal;
+            if(tanggalMentah && tanggalMentah.toString().includes("T")) {
+                tanggalMentah = tanggalMentah.toString().split("T")[0];
+            }
+
+            let kolomTanggal = agenda.isRutin ? `<span class="badge-rutin">🔄 Rutin</span>` : `<span class="badge-waktu">${formatTanggalIndo(tanggalMentah)}</span>`;
+            let kolomHari = agenda.isRutin ? `<strong>${agenda.hariRutin}</strong>` : `<strong>${dapatkanNamaHari(tanggalMentah)}</strong>`;
+
+            let aksiButtonHtml = isAdmin ? `
+                <td class="aksi-kolom"><div class="aksi-btn">
+                    <button class="btn-table selesai-btn" onclick="toggleSelesai('${agenda.id}')">✔️</button>
+                    <button class="btn-table hapus-btn" onclick="hapusAgenda('${agenda.id}')">X</button>
+                </div></td>` : '';
+
+            tr.innerHTML = `<td>${kolomTanggal}</td><td>${kolomHari}</td><td>⏰ ${agenda.jam || '-'}</td><td>${agenda.kegiatan}</td><td>👤 ${agenda.pemateri || '-'}</td><td>📍 ${agenda.lokasi || '-'}</td>${aksiButtonHtml}`;
+            daftarAgenda.appendChild(tr);
+        });
+    }
+
+    function tambahAgenda() {
+        const kegiatan = kegiatanInput.value;
+        if (kegiatan.trim() === '' || (jenisAgenda.value === 'sekali' && tanggalInput.value === '')) { alert('Isi data wajib!'); return; }
+
+        const idBaru = Date.now().toString();
+        const isRutin = jenisAgenda.value === 'rutin';
+        const tgl = isRutin ? '' : tanggalInput.value;
+        const hari = isRutin ? hariRutinInput.value : '';
+        const jam = jamInput.value; const pemateri = pemateriInput.value; const lokasi = lokasiInput.value;
+
+        tanggalInput.value = ''; jamInput.value = ''; kegiatanInput.value = ''; pemateriInput.value = ''; lokasiInput.value = '';
+        kirimDataKeCloud({ aksi: "tambah_agenda", id: idBaru, isRutin: isRutin, tanggal: tgl, hariRutin: hari, jam: jam, kegiatan: kegiatan, pemateri: pemateri, lokasi: lokasi });
+    }
+
+    function resetFilter() { filterMulai.value = ""; filterSampai.value = ""; muatAgenda(); }
+
+    function toggleSelesai(id) { kirimDataKeCloud({ aksi: "toggle_agenda", id: id }); }
+    function hapusAgenda(id) { if(confirm("Hapus agenda ini?")) kirimDataKeCloud({ aksi: "hapus_agenda", id: id }); }
+
+    function exportKeExcel() {
+        const tabelAgenda = document.querySelector("table"); if (!tabelAgenda) return;
+        const klonTabel = tabelAgenda.cloneNode(true);
+        klonTabel.querySelectorAll("tr").forEach(baris => {
+            const teks = baris.innerText.toLowerCase();
+            if (teks.includes("pukul") && teks.includes("kegiatan") && baris.parentElement.tagName === "TBODY") baris.remove();
+            if (localStorage.getItem("session_role") === "admin" && baris.lastElementChild) baris.lastElementChild.remove();
+        });
+        const templateExcel = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://w3.org"><head><meta charset="UTF-8"><style>th { background-color: #343a40; color: #fff; font-weight: bold; border: 1px solid #000; } td { border: 1px solid #dee2e6; }</style></head><body>${klonTabel.outerHTML}</body></html>`;
+        const dataBlob = new Blob([templateExcel], { type: "application/vnd.ms-excel" });
+        const urlUnduh = URL.createObjectURL(dataBlob); const tautanUnduh = document.createElement("a"); tautanUnduh.href = urlUnduh; tautanUnduh.download = "Agenda_Kerja_Harian.xls";
+        document.body.appendChild(tautanUnduh); tautanUnduh.click(); document.body.removeChild(tautanUnduh); URL.revokeObjectURL(urlUnduh);
+    }
+
+    function pilihFileImport() { document.getElementById('inputFileExcel').click(); }
+
+    function prosesImportExcel(input) {
+        const file = input.files; if (!file) return;
+        const pembacaFile = new FileReader();
+        pembacaFile.onload = function (e) {
+            const teksKonten = e.target.result;
+            let bulkArray = [];
+            let tahunDitemukan = 2026, bulanDitemukan = 5;
+            const daftarBulanIndo = ["JANUARI", "FEBRUARI", "MARET", "APRIL", "MEI", "JUNI", "JULI", "AGUSTUS", "SEPTEMBER", "OKTOBER", "NOVEMBER", "DESEMBER"];
+            let tanggalTerakhir = "", hariTerakhir = "";
+
+            if (teksKonten.includes("<table") || teksKonten.includes("<tr")) {
+                const parser = new DOMParser(); const dokumenTabel = parser.parseFromString(teksKonten, "text/html");
+                const barisTabel = dokumenTabel.querySelectorAll("tr");
                 
-                // Cari apakah ada baris "BULAN :" di 5 baris pertama CSV
+                barisTabel.forEach(tr => {
+                    const teksTr = tr.innerText.toUpperCase();
+                    if (teksTr.includes("BULAN :")) {
+                        daftarBulanIndo.forEach((nama, idx) => { if (teksTr.includes(nama)) bulanDitemukan = idx; });
+                        const matchY = teksTr.match(/\d{4}/); if (matchY) tahunDitemukan = parseInt(matchY);
+                    }
+                });
+
+                barisTabel.forEach((tr, index) => {
+                    const kolom = tr.querySelectorAll("td, th");
+                    const teksTr = tr.innerText.toUpperCase();
+                    if (kolom.length < 6 || teksTr.includes("TGL") || teksTr.includes("BULAN :") || teksTr.includes("KEGIATAN") && teksTr.includes("HARI")) return;
+
+                    let tglRaw = kolom[0] ? kolom[0].innerText.trim() : "";
+                    let hariRaw = kolom[1] ? kolom[1].innerText.trim() : "";
+                    let jam = kolom[2] ? kolom[2].innerText.replace(/⏰/g, "").trim() : "";
+                    let kegiatan = kolom[3] ? kolom[3].innerText.trim() : "";
+                    let pemateri = kolom[4] ? kolom[4].innerText.replace(/👤/g, "").trim() : "";
+                    let lokasi = kolom[5] ? kolom[5].innerText.replace(/📍/g, "").trim() : "";
+
+                    if (kegiatan === "" || kegiatan.toLowerCase() === "kegiatan" || tglRaw.includes("Tidak ada agenda")) return;
+
+                    if (tglRaw !== "") tanggalTerakhir = tglRaw;
+                    if (hariRaw !== "") hariTerakhir = hariRaw;
+
+                    const isRutin = tanggalTerakhir.toLowerCase().includes("rutin") || tanggalTerakhir.includes("🔄") || ["SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU", "MINGGU"].includes(tanggalTerakhir.toUpperCase());
+                    let tanggalFinal = "";
+                    if (!isRutin) {
+                        if (tanggalTerakhir.includes("/")) {
+                            const p = tanggalTerakhir.split("/");
+                            if (p.length === 3) tanggalFinal = `${p[2]}-${p[1]}-${p[0]}`;
+                        } else if (tanggalTerakhir.includes("-")) {
+                            const p = tanggalTerakhir.split("-");
+                            if (p.length === 3) tanggalFinal = p[0].length === 4 ? tanggalTerakhir : `${p[2]}-${p[1]}-${p[0]}`;
+                        } else if (!isNaN(tanggalTerakhir) && tanggalTerakhir !== "") {
+                            tanggalFinal = `${tahunDitemukan}-${String(bulanDitemukan + 1).padStart(2, '0')}-${String(parseInt(tanggalTerakhir)).padStart(2, '0')}`;
+                        }
+                    }
+
+                    let hariFinal = hariTerakhir;
+                    if(hariTerakhir !== "") {
+                        let hariBersih = hariTerakhir.replace("Setiap ", "");
+                        hariFinal = hariBersih.charAt(0).toUpperCase() + hariBersih.slice(1).toLowerCase();
+                    }
+
+                    bulkArray.push({
+                        id: (Date.now() + index + Math.random()).toString(),
+                        isRutin: isRutin,
+                        tanggal: isRutin ? "" : tanggalFinal,
+                        hariRutin: isRutin ? hariFinal : "",
+                        jam: jam === "-" ? "" : jam,
+                        kegiatan: kegiatan,
+                        pemateri: pemateri === "-" ? "" : pemateri,
+                        lokasi: lokasi === "-" ? "" : lokasi,
+                        selesai: tr.classList.add && tr.classList.contains("selesai") ? true : false
+                    });
+                });
+            } else {
+                const barisData = teksKonten.split("\n");
                 for(let i=0; i<Math.min(5, barisData.length); i++) {
                     const txt = barisData[i].toUpperCase();
                     if(txt.includes("BULAN :")) {
                         daftarBulanIndo.forEach((nama, idx) => { if (txt.includes(nama)) bulanDitemukan = idx; });
-                        const matchY = txt.match(/\d{4}/); if (matchY) tahunDitemukan = parseInt(matchY);
+                        const matchY = txt.match(/\d{4}/); if (matchY) tahunDitemukan = parseInt(matchY, 10);
                     }
                 }
 
@@ -591,11 +667,8 @@
                     const barisBersih = barisData[i].trim();
                     if (barisBersih === "" || barisBersih.toUpperCase().includes("TGL") || barisBersih.toUpperCase().includes("BULAN :")) continue;
 
-                    // Pecah kolom CSV berdasarkan koma atau titik koma bawaan Excel regional Indo
-                    let kolom = barisBersih.split(/[,;]/);
-                    kolom = kolom.map(val => val.replace(/^["']|["']$/g, '').trim());
-
-                    if (kolom.length < 5) continue;
+                    let kolom = barisBersih.split(/[,;]/).map(val => val.replace(/^["']|["']$/g, '').trim());
+                    if (kolom.length < 6) continue;
 
                     let tglRaw = kolom[0] || "";
                     let hariRaw = kolom[1] || "";
@@ -617,29 +690,28 @@
                             if (p.length === 3) tanggalFinal = `${p[2]}-${p[1]}-${p[0]}`;
                         } else if (tanggalTerakhir.includes("-")) {
                             const p = tanggalTerakhir.split("-");
-                            if (p.length === 3) tanggalFinal = p[0].length === 4 ? tanggalTerakhir : `${p[2]}-${p[1]}-${p[0]}`;
+                            if (p.length === 3) tanggalFinal = p.length === 4 ? tanggalTerakhir : `${p[0]}-${p[1]}-${p[2]}`;
                         } else if (!isNaN(tanggalTerakhir) && tanggalTerakhir !== "") {
-                            tanggalFinal = `${tahunDitemukan}-${String(bulanDitemukan + 1).padStart(2, '0')}-${String(parseInt(tanggalTerakhir)).padStart(2, '0')}`;
+                            tanggalFinal = `${tahunDitemukan}-${String(bulanDitemukan + 1).padStart(2, '0')}-${String(parseInt(tanggalTerakhir, 10)).padStart(2, '0')}`;
                         }
                     }
 
                     let hariFinal = hariTerakhir.charAt(0).toUpperCase() + hariTerakhir.slice(1).toLowerCase();
 
-                    bulkArray.push({
-                        id: (Date.now() + i + Math.random()).toString(),
-                        isRutin: isRutin,
-                        tanggal: isRutin ? "" : tanggalFinal,
-                        hariRutin: isRutin ? hariFinal : "",
-                        jam: jam === "-" ? "" : jam,
-                        kegiatan: kegiatan,
-                        pemateri: pemateri === "-" ? "" : pemateri,
-                        lokasi: lokasi === "-" ? "" : lokasi,
-                        selesai: false
+                    bulkArray.push({ 
+                        id: (Date.now() + i + Math.random()).toString(), 
+                        isRutin: isRutin, 
+                        tanggal: isRutin ? "" : tanggalFinal, 
+                        hariRutin: isRutin ? hariFinal : "", 
+                        jam: jam === "-" ? "" : jam, 
+                        kegiatan: kegiatan, 
+                        pemateri: pemateri === "-" ? "" : pemateri, 
+                        lokasi: lokasi === "-" ? "" : lokasi, 
+                        selesai: false 
                     });
                 }
             }
 
-            // Kirim massal ke Google Sheets cloud
             if(bulkArray.length > 0) {
                 kirimDataKeCloud({ aksi: "import_bulk", dataArray: bulkArray });
                 alert(`🚀 Sukses membaca berkas! Sedang menyetor ${bulkArray.length} data kegiatan ke Google Sheets, mohon tunggu sekitar 3 detik...`);
@@ -650,7 +722,6 @@
         };
         pembacaFile.readAsText(file);
     }
-    
 </script>
 </body>
 </html>
