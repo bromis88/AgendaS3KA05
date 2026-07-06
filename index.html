@@ -392,22 +392,24 @@
 
     function pilihFileImport() { document.getElementById('inputFileExcel').click(); }
 
-        function prosesImportExcel(input) {
-        const file = input.files; if (!file) return;
+            function prosesImportExcel(input) {
+        const file = input.files[0];
+        if (!file) return;
+
         const pembacaFile = new FileReader();
         pembacaFile.onload = function (e) {
             const teksKonten = e.target.result;
             let bulkArray = [];
-            let tahunDitemukan = 2026, bulanDitemukan = 5;
+            let tahunDitemukan = 2026, bulanDitemukan = 5; // Default Juni 2026
             const daftarBulanIndo = ["JANUARI", "FEBRUARI", "MARET", "APRIL", "MEI", "JUNI", "JULI", "AGUSTUS", "SEPTEMBER", "OKTOBER", "NOVEMBER", "DESEMBER"];
             let tanggalTerakhir = "", hariTerakhir = "";
 
+            // ====== STRUKTUR PEMBACA 1: Jika File berformat Web Page (.html / .htm) ======
             if (teksKonten.includes("<table") || teksKonten.includes("<tr")) {
                 const parser = new DOMParser(); 
                 const dokumenTabel = parser.parseFromString(teksKonten, "text/html");
                 const barisTabel = dokumenTabel.querySelectorAll("tr");
                 
-                // 1. Deteksi judul bulan dari berkas Excel manual jika ada
                 barisTabel.forEach(tr => {
                     const teksTr = tr.innerText.toUpperCase();
                     if (teksTr.includes("BULAN :")) {
@@ -416,15 +418,11 @@
                     }
                 });
 
-                // 2. Ekstrak data baris agenda dari file export lama
                 barisTabel.forEach((tr, index) => {
                     const kolom = tr.querySelectorAll("td, th");
                     const teksTr = tr.innerText.toUpperCase();
-                    
-                    // Lewati baris kosong atau baris judul kolom utama
-                    if (kolom.length < 6 || teksTr.includes("TGL") || teksTr.includes("BULAN :") || teksTr.includes("KEGIATAN") && teksTr.includes("HARI")) return;
+                    if (kolom.length < 5 || teksTr.includes("TGL") || teksTr.includes("BULAN :") || teksTr.includes("KEGIATAN") && teksTr.includes("HARI")) return;
 
-                    // PERBAIKAN UTAMA: Mengambil text dari NodeList menggunakan properti .innerText secara tepat
                     let tglRaw = kolom[0] ? kolom[0].innerText.trim() : "";
                     let hariRaw = kolom[1] ? kolom[1].innerText.trim() : "";
                     let jam = kolom[2] ? kolom[2].innerText.replace(/⏰/g, "").trim() : "";
@@ -432,41 +430,87 @@
                     let pemateri = kolom[4] ? kolom[4].innerText.replace(/👤/g, "").trim() : "";
                     let lokasi = kolom[5] ? kolom[5].innerText.replace(/📍/g, "").trim() : "";
 
-                    // Filter blokir jika mendeteksi teks sampah atau baris pemberitahuan kosong
                     if (kegiatan === "" || kegiatan.toLowerCase() === "kegiatan" || tglRaw.includes("Tidak ada agenda")) return;
 
-                    // Solusi Merged Cells: Jika kolom kosong, isi dengan baris di atasnya
                     if (tglRaw !== "") tanggalTerakhir = tglRaw;
                     if (hariRaw !== "") hariTerakhir = hariRaw;
 
-                    // Deteksi Jenis Agenda (Rutin atau Sekali Jalan)
-                    const isRutin = tanggalTerakhir.toLowerCase().includes("rutin") || 
-                                    tanggalTerakhir.includes("🔄") || 
-                                    ["SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU", "MINGGU"].includes(tanggalTerakhir.toUpperCase());
-                    
+                    const isRutin = tanggalTerakhir.toLowerCase().includes("rutin") || tanggalTerakhir.includes("🔄") || ["SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU", "MINGGU"].includes(tanggalTerakhir.toUpperCase());
                     let tanggalFinal = "";
                     if (!isRutin) {
                         if (tanggalTerakhir.includes("/")) {
                             const p = tanggalTerakhir.split("/");
-                            if (p.length === 3) tanggalFinal = `${p[2]}-${p[1]}-${p[0]}`; // DD/MM/YYYY ke YYYY-MM-DD
+                            if (p.length === 3) tanggalFinal = `${p[2]}-${p[1]}-${p[0]}`;
                         } else if (tanggalTerakhir.includes("-")) {
                             const p = tanggalTerakhir.split("-");
                             if (p.length === 3) tanggalFinal = p[0].length === 4 ? tanggalTerakhir : `${p[2]}-${p[1]}-${p[0]}`;
                         } else if (!isNaN(tanggalTerakhir) && tanggalTerakhir !== "") {
-                            // Jika format Excel manual berupa angka tanggal murni
                             tanggalFinal = `${tahunDitemukan}-${String(bulanDitemukan + 1).padStart(2, '0')}-${String(parseInt(tanggalTerakhir)).padStart(2, '0')}`;
                         }
                     }
 
-                    // Format Kapitalisasi Kata Hari (contoh: SELASA -> Selasa)
                     let hariFinal = hariTerakhir;
                     if(hariTerakhir !== "") {
                         let hariBersih = hariTerakhir.replace("Setiap ", "");
                         hariFinal = hariBersih.charAt(0).toUpperCase() + hariBersih.slice(1).toLowerCase();
                     }
 
+                    bulkArray.push({ id: (Date.now() + index + Math.random()).toString(), isRutin: isRutin, tanggal: isRutin ? "" : tanggalFinal, hariRutin: isRutin ? hariFinal : "", jam: jam === "-" ? "" : jam, kegiatan: kegiatan, pemateri: pemateri === "-" ? "" : pemateri, lokasi: lokasi === "-" ? "" : lokasi, selesai: tr.classList.contains("selesai") });
+                });
+            } 
+            // ====== STRUKTUR PEMBACA 2: Jika File berformat Teks Ringan CSV (*.csv) ======
+            else {
+                const barisData = teksKonten.split("\n");
+                
+                // Cari apakah ada baris "BULAN :" di 5 baris pertama CSV
+                for(let i=0; i<Math.min(5, barisData.length); i++) {
+                    const txt = barisData[i].toUpperCase();
+                    if(txt.includes("BULAN :")) {
+                        daftarBulanIndo.forEach((nama, idx) => { if (txt.includes(nama)) bulanDitemukan = idx; });
+                        const matchY = txt.match(/\d{4}/); if (matchY) tahunDitemukan = parseInt(matchY);
+                    }
+                }
+
+                for (let i = 1; i < barisData.length; i++) {
+                    const barisBersih = barisData[i].trim();
+                    if (barisBersih === "" || barisBersih.toUpperCase().includes("TGL") || barisBersih.toUpperCase().includes("BULAN :")) continue;
+
+                    // Pecah kolom CSV berdasarkan koma atau titik koma bawaan Excel regional Indo
+                    let kolom = barisBersih.split(/[,;]/);
+                    kolom = kolom.map(val => val.replace(/^["']|["']$/g, '').trim());
+
+                    if (kolom.length < 5) continue;
+
+                    let tglRaw = kolom[0] || "";
+                    let hariRaw = kolom[1] || "";
+                    let jam = kolom[2] ? kolom[2].replace(/⏰/g, "").trim() : "";
+                    let kegiatan = kolom[3] || "";
+                    let pemateri = kolom[4] ? kolom[4].replace(/👤/g, "").trim() : "";
+                    let lokasi = kolom[5] ? kolom[5].replace(/📍/g, "").trim() : "";
+
+                    if (kegiatan === "" || kegiatan.toLowerCase() === "kegiatan") continue;
+
+                    if (tglRaw !== "") tanggalTerakhir = tglRaw;
+                    if (hariRaw !== "") hariTerakhir = hariRaw;
+
+                    const isRutin = tanggalTerakhir.toLowerCase().includes("rutin") || ["SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU", "MINGGU"].includes(tanggalTerakhir.toUpperCase());
+                    let tanggalFinal = "";
+                    if (!isRutin) {
+                        if (tanggalTerakhir.includes("/")) {
+                            const p = tanggalTerakhir.split("/");
+                            if (p.length === 3) tanggalFinal = `${p[2]}-${p[1]}-${p[0]}`;
+                        } else if (tanggalTerakhir.includes("-")) {
+                            const p = tanggalTerakhir.split("-");
+                            if (p.length === 3) tanggalFinal = p[0].length === 4 ? tanggalTerakhir : `${p[2]}-${p[1]}-${p[0]}`;
+                        } else if (!isNaN(tanggalTerakhir) && tanggalTerakhir !== "") {
+                            tanggalFinal = `${tahunDitemukan}-${String(bulanDitemukan + 1).padStart(2, '0')}-${String(parseInt(tanggalTerakhir)).padStart(2, '0')}`;
+                        }
+                    }
+
+                    let hariFinal = hariTerakhir.charAt(0).toUpperCase() + hariTerakhir.slice(1).toLowerCase();
+
                     bulkArray.push({
-                        id: (Date.now() + index + Math.random()).toString(),
+                        id: (Date.now() + i + Math.random()).toString(),
                         isRutin: isRutin,
                         tanggal: isRutin ? "" : tanggalFinal,
                         hariRutin: isRutin ? hariFinal : "",
@@ -474,22 +518,23 @@
                         kegiatan: kegiatan,
                         pemateri: pemateri === "-" ? "" : pemateri,
                         lokasi: lokasi === "-" ? "" : lokasi,
-                        selesai: tr.classList.contains("selesai")
+                        selesai: false
                     });
-                });
+                }
             }
 
-            // 3. Eksekusi Pengiriman Massal ke Google Spreadsheet Cloud
+            // Kirim massal ke Google Sheets cloud
             if(bulkArray.length > 0) {
                 kirimDataKeCloud({ aksi: "import_bulk", dataArray: bulkArray });
-                alert(`🚀 Sukses membaca berkas! Sedang mengirim ${bulkArray.length} data agenda ke Google Spreadsheet Cloud, mohon tunggu sekitar 3 detik...`);
+                alert(`🚀 Sukses membaca berkas! Sedang menyetor ${bulkArray.length} data kegiatan ke Google Sheets, mohon tunggu sekitar 3 detik...`);
             } else {
-                alert("Gagal membaca file! Pastikan file yang Anda pilih adalah berkas cadangan .xls hasil download aplikasi.");
+                alert("Gagal membaca data! Pastikan Anda memilih file yang tepat.");
             }
             input.value = '';
         };
         pembacaFile.readAsText(file);
     }
+
 
 </script>
 </body>
