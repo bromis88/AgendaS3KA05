@@ -281,7 +281,21 @@
         const tglSampaiVal = filterSampai.value;
         const hariIndo = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
         
+        // PERBAIKAN: Bersihkan data sampah/kosong yang datang dari Google Sheets
+        agendas = agendas.filter(agenda => {
+            return agenda.kegiatan && agenda.kegiatan.trim() !== "" && agenda.kegiatan !== "-";
+        });
+
         agendas = agendas.map(agenda => {
+            // PERBAIKAN UTAMA: Potong format waktu rusak Google Sheets (1899-12-30T06:52:48.000Z -> 06:52)
+            if (agenda.jam && agenda.jam.includes("T")) {
+                let sisaWaktu = agenda.jam.split("T")[1]; // Mengambil bagian setelah huruf T
+                let komponenJam = sisaWaktu.split(":");
+                if (komponenJam.length >= 2) {
+                    agenda.jam = `${komponenJam[0]}:${komponenJam[1]}`; // Gabungkan Jam : Menit saja
+                }
+            }
+
             if (agenda.isRutin) {
                 const hariIni = new Date(); hariIni.setHours(0,0,0,0);
                 let selisihHari = hariIndo.indexOf(agenda.hariRutin) - hariIni.getDay();
@@ -304,7 +318,9 @@
             agendas = agendas.filter(agenda => {
                 if (!agenda.tanggalUrutDinamis) return false;
                 const tglParts = agenda.tanggalUrutDinamis.split("-");
+                if (tglParts.length !== 3) return false;
                 const tanggalAgenda = new Date(parseInt(tglParts[0]), parseInt(tglParts[1]) - 1, parseInt(tglParts[2]));
+                
                 if (tglMulaiVal !== "") {
                     const m = tglMulaiVal.split("-");
                     if (tanggalAgenda < new Date(parseInt(m[0]), parseInt(m[1]) - 1, parseInt(m[2]))) return false;
@@ -316,6 +332,41 @@
                 return true;
             });
         }
+
+        agendas.sort((a, b) => new Date(a.tanggalUrutDinamis) - new Date(b.tanggalUrutDinamis) || (a.jam || "").localeCompare(b.jam || ""));
+        tampilkanAgenda(agendas);
+    }
+
+    function tampilkanAgenda(agendas) {
+        daftarAgenda.innerHTML = '';
+        if(agendas.length === 0) {
+            daftarAgenda.innerHTML = `<tr><td colspan="7" class="no-data">Tidak ada agenda ditemukan.</td></tr>`; return;
+        }
+        const isAdmin = localStorage.getItem("session_role") === "admin";
+
+        agendas.forEach(function(agenda) {
+            const tr = document.createElement('tr');
+            if(agenda.selesai) tr.classList.add('selesai');
+
+            // Ambil data tanggal bersih (potong jika ada sisa timestamp ISO dari Google Sheets)
+            let tanggalMentah = agenda.tanggal;
+            if(tanggalMentah && tanggalMentah.includes("T")) {
+                tanggalMentah = tanggalMentah.split("T")[0];
+            }
+
+            let kolomTanggal = agenda.isRutin ? `<span class="badge-rutin">🔄 Rutin</span>` : `<span class="badge-waktu">${formatTanggalIndo(tanggalMentah)}</span>`;
+            let kolomHari = agenda.isRutin ? `<strong>${agenda.hariRutin}</strong>` : `<strong>${dapatkanNamaHari(tanggalMentah)}</strong>`;
+
+            let aksiButtonHtml = isAdmin ? `
+                <td class="aksi-kolom"><div class="aksi-btn">
+                    <button class="btn-table selesai-btn" onclick="toggleSelesai('${agenda.id}')">✔️</button>
+                    <button class="btn-table hapus-btn" onclick="hapusAgenda('${agenda.id}')">X</button>
+                </div></td>` : '';
+
+            tr.innerHTML = `<td>${kolomTanggal}</td><td>${kolomHari}</td><td>⏰ ${agenda.jam || '-'}</td><td>${agenda.kegiatan}</td><td>👤 ${agenda.pemateri || '-'}</td><td>📍 ${agenda.lokasi || '-'}</td>${aksiButtonHtml}`;
+            daftarAgenda.appendChild(tr);
+        });
+    }
 
         agendas.sort((a, b) => new Date(a.tanggalUrutDinamis) - new Date(b.tanggalUrutDinamis) || (a.jam || "").localeCompare(b.jam || ""));
         tampilkanAgenda(agendas);
