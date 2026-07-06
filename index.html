@@ -221,25 +221,35 @@
         muatAgenda();
     }
 
-    function prosesLogin() {
+        function prosesLogin() {
         const inputUser = usernameInput.value.trim();
         const inputPass = passwordInput.value;
 
+        // 1. KUNCI UTAMA: Validasi Akun Master Admin (Selalu prioritaskan ini tanpa memandang koneksi sheets)
         if (inputUser === ADMIN_USER && inputPass === ADMIN_PASS) {
             localStorage.setItem("session_role", "admin");
-            usernameInput.value = ""; passwordInput.value = "";
-            periksaStatusLogin(); return;
+            usernameInput.value = ""; 
+            passwordInput.value = "";
+            periksaStatusLogin(); 
+            return; // Hentikan fungsi di sini karena login admin sudah sukses
         }
 
-        const userCocok = window.DATABASE_CLOUD_USERS.find(u => u.username === inputUser && u.password === inputPass);
-        if (userCocok) {
-            localStorage.setItem("session_role", "user");
-            usernameInput.value = ""; passwordInput.value = "";
-            periksaStatusLogin();
-        } else {
-            alert("Akun tidak ditemukan atau password salah!");
+        // 2. Validasi Akun Pengamat dari Google Sheets (Hanya jika bukan kata 'admin')
+        if (window.DATABASE_CLOUD_USERS && window.DATABASE_CLOUD_USERS.length > 0) {
+            const userCocok = window.DATABASE_CLOUD_USERS.find(u => u.username.trim() === inputUser && u.password.toString() === inputPass.toString());
+            if (userCocok) {
+                localStorage.setItem("session_role", "user");
+                usernameInput.value = ""; 
+                passwordInput.value = "";
+                periksaStatusLogin();
+                return;
+            }
         }
+
+        // Jika semua pengecekan di atas gagal, tampilkan peringatan salah
+        alert("Username atau Password salah / Akun tidak terdaftar!");
     }
+
         function prosesLogout() {
         // 1. Bersihkan status sesi login saja
         localStorage.removeItem("session_role");
