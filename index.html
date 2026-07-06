@@ -341,13 +341,13 @@
         });
 
         agendas = agendas.map(agenda => {
-            // PERBAIKAN TOTAL FORMAT JAM: Potong format waktu rusak Google Sheets (1899-12-30T06:52:48.000Z -> 06:52)
+            // PERBAIKAN FATAL FORMAT JAM: Koreksi pemecahan array indeks string yang benar
             if (agenda.jam && agenda.jam.toString().includes("T")) {
                 let sisaWaktu = agenda.jam.toString().split("T"); // [1899-12-30, 06:52:48.000Z]
                 if (sisaWaktu.length === 2) {
-                    let komponenJam = sisaWaktu[1].split(":"); // [06, 52, 48.000Z]
+                    let komponenJam = sisaWaktu[1].split(":"); // Memecah string waktu murni [06, 52, 48.000Z]
                     if (komponenJam.length >= 2) {
-                        agenda.jam = `${komponenJam[0]}:${komponenJam[1]}`; // Gabungkan Jam : Menit saja
+                        agenda.jam = `${komponenJam[0]}:${komponenJam[1]}`; // Hasil: 06:52
                     }
                 }
             }
