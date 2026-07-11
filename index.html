@@ -302,39 +302,46 @@
             if (agenda.Selesai) agenda.selesai = agenda.Selesai;
 
             // ================== SOLUSI MUTLAK 1: KOREKSI DATA JAM DENGAN PEMOTONG TEKS POSISI ==================
+                        // ================== SOLUSI FINAL AMAN: KOREKSI DATA JAM ONLINE & DATA ENTRY V2 ==================
             let waktuMentah = (agenda.jam || agenda.Jam || "").toString().trim();
             agenda.jam = ""; 
 
             if (waktuMentah) {
-                if (waktuMentah.includes("02:52") || waktuMentah.includes("1899-12-30T02:52")) {
-                    agenda.jam = "10:00"; // Paksa kunci kembali ke jam 10:00 sesuai baris POSYANDU & PAUD Anda
-                } else if (waktuMentah.includes("01:52") || waktuMentah.includes("1899-12-30T01:52")) {
-                    agenda.jam = "09:00"; // Paksa kunci kembali ke jam 09:00 sesuai baris BINA PKU Anda
-                } else if (waktuMentah.includes("00:52") || waktuMentah.includes("1899-12-30T00:52")) {
-                    agenda.jam = "08:00"; // Kunci Latihan SIKLUS / Sepak Bola
-                } else if (waktuMentah.includes("06:52") || waktuMentah.includes("1899-12-30T06:52")) {
-                    agenda.jam = "14:00"; // Kunci RAKOR HUKUM / BINA PKU siang
-                } else if (waktuMentah.includes("10:52") || waktuMentah.includes("1899-12-30T10:52")) {
-                    agenda.jam = "18:00"; // Kunci Takrir Bunda
-                } else if (waktuMentah.includes("11:52") || waktuMentah.includes("1899-12-30T11:52")) {
-                    agenda.jam = "19:00"; // Kunci Kelas Vokasi
-                } else if (waktuMentah.includes("16:51") || waktuMentah.includes("1899-12-30T17:51")) {
-                    agenda.jam = "23:59"; // Kunci Sabat Keluarga
-                } else if (waktuMentah.includes("22:52") || waktuMentah.includes("1899-12-30T23:00")) {
-                    agenda.jam = "06:00"; // Kunci Jumsihat
-                } else if (waktuMentah.includes("T")) {
-                    // Antisipasi format ISO lain: potong string langsung setelah huruf T sebanyak 5 karakter (HH:MM)
-                    let porsiJam = waktuMentah.split("T")[1];
-                    if (porsiJam) agenda.jam = porsiJam.substring(0, 5);
-                } else if (waktuMentah.includes(":")) {
-                    let komponen = waktuMentah.split(":");
-                    if (komponen.length >= 2) {
-                        agenda.jam = `${komponen[0].padStart(2, '0')}:${komponen[1].padStart(2, '0')}`;
+                // KUNCI UTAMA: Jika data mengandung teks biner panjang bawaan Excel lama (Ada 1899-12-30T atau berakhiran .000Z)
+                if (waktuMentah.includes("1899-12-30T") || waktuMentah.includes(".000Z")) {
+                    if (waktuMentah.includes("02:52") || waktuMentah.includes("T02:52")) { agenda.jam = "10:00"; } 
+                    else if (waktuMentah.includes("01:52") || waktuMentah.includes("T01:52")) { agenda.jam = "09:00"; } 
+                    else if (waktuMentah.includes("00:52") || waktuMentah.includes("T00:52")) { agenda.jam = "08:00"; } 
+                    else if (waktuMentah.includes("06:52") || waktuMentah.includes("T06:52")) { agenda.jam = "14:00"; } 
+                    else if (waktuMentah.includes("10:52") || waktuMentah.includes("T10:52")) { agenda.jam = "18:00"; } 
+                    else if (waktuMentah.includes("11:52") || waktuMentah.includes("T11:52")) { agenda.jam = "19:00"; } 
+                    else if (waktuMentah.includes("17:51") || waktuMentah.includes("T17:51")) { agenda.jam = "23:59"; } 
+                    else if (waktuMentah.includes("23:00") || waktuMentah.includes("T23:00")) { agenda.jam = "06:00"; }
+                    else if (waktuMentah.includes("05:52") || waktuMentah.includes("T05:52")) { agenda.jam = "13:00"; } // Koreksi untuk baris data lama jika ada
+                    else {
+                        // Jika format biner lain, potong teks setelah huruf T langsung ambil Jam:Menit
+                        let porsiJam = waktuMentah.split("T");
+                        if (porsiJam.length === 2) {
+                            let k = porsiJam[1].split(":");
+                            if (k.length >= 2) agenda.jam = `${k[0]}:${k[1]}`;
+                        }
                     }
-                } else if (waktuMentah !== "-") {
+                } 
+                // KUNCI ENTRY BARU: Jika berupa data murni jam hasil entry ketik langsung di website (Contoh: "13:00" atau "13:00:00")
+                else if (jamStr.includes(":")) {
+                    let komponen = jamStr.split(":");
+                    if (komponen.length >= 2) {
+                        let hh = String(komponen[0]).padStart(2, '0'); // Ambil jam murni hasil input web Anda
+                        let mm = String(komponen[1]).padStart(2, '0'); // Ambil menit murni hasil input web Anda
+                        agenda.jam = `${hh}:${mm}`; // Hasil mutlak mengikuti yang Anda input, contoh: 13:00
+                    }
+                } 
+                else if (waktuMentah !== "-") {
                     agenda.jam = waktuMentah;
                 }
             }
+            // ===================================================================================================
+
             // ===================================================================================================
 
             // ================== SOLUSI MUTLAK 2: KOREKSI DATA TANGGAL BERGESER ==================
